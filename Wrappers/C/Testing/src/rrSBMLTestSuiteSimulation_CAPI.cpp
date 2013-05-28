@@ -14,12 +14,18 @@ SimulationData convertCAPIResultData(RRResultHandle		resultsHandle);
 
 SBMLTestSuiteSimulation_CAPI::SBMLTestSuiteSimulation_CAPI(const string& dataOutputFolder, const string& modelFilePath, const string& modelFileName)
 :
-rr::TestSuiteModelSimulation(dataOutputFolder, modelFilePath, modelFileName)
+rr::TestSuiteModelSimulation(dataOutputFolder, modelFilePath, modelFileName),
+mRRHandle(0),
+mResultHandle(0)
 {
 }
 
 SBMLTestSuiteSimulation_CAPI::~SBMLTestSuiteSimulation_CAPI()
-{}
+{
+    cout << __FUNC__ << "\n";
+    // we own the result, but not the RR instance.
+    freeResult(mResultHandle);
+}
 
 void SBMLTestSuiteSimulation_CAPI::UseHandle(RRHandle handle)
 {
@@ -66,6 +72,7 @@ bool SBMLTestSuiteSimulation_CAPI::Simulate()
     {
 		mResultData = convertCAPIResultData(mResultHandle);
     }
+
     return mResultHandle ? true : false;
 }
 
