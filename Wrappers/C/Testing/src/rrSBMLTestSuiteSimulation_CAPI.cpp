@@ -22,8 +22,14 @@ mResultHandle(0)
 
 SBMLTestSuiteSimulation_CAPI::~SBMLTestSuiteSimulation_CAPI()
 {
+<<<<<<< HEAD
     // we own the result, but not the RR instance.
     freeRRData(mResultHandle);
+=======
+    cout << __FUNC__ << "\n";
+    // we own the result, but not the RR instance.
+    freeResult(mResultHandle);
+>>>>>>> fixed memory leaks in result struct
 }
 
 void SBMLTestSuiteSimulation_CAPI::UseHandle(RRHandle handle)
