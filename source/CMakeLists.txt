@@ -125,7 +125,7 @@ target_link_libraries (${target}
  sundials_nvecserial
  blas
  lapack
- libf2c${staticLibExt}
+ f2c${staticLibExt}
  pugi-static
  nleq-static
  rr-libstruct-static
@@ -138,7 +138,7 @@ target_link_libraries (${target}
 )
 else()
 target_link_libraries (${target}    
- libsbml
+ sbml
 )
 endif()
 if(${INSTALL_CXX_API})
@@ -171,12 +171,12 @@ POCO_NO_AUTOMATIC_LIBS
 #======== We need to split up this one to satisfy linking in both windows and posix.
 #=== windows need libsbml-static and libf2c and posix uses sbml-static and f2c
 target_link_libraries (${target}-static 
-   libsbml-static${staticLibExt}
+   sbml-static${staticLibExt}
    sundials_cvode
    sundials_nvecserial
    blas
    lapack
-   libf2c${staticLibExt}
+   f2c${staticLibExt}
    pugi-static
    nleq-static
    rr-libstruct-static
