@@ -172,25 +172,38 @@ POCO_NO_AUTOMATIC_LIBS
 #======== We need to split up this one to satisfy linking in both windows and posix.
 #=== windows need libsbml-static and libf2c and posix uses sbml-static and f2c
 target_link_libraries (${target}-static 
-   sbml-static${staticLibExt}
    sundials_cvode
    sundials_nvecserial
    blas
    lapack
-   f2c${staticLibExt}
    pugi-static
    nleq-static
    rr-libstruct-static
    poco_foundation-static
 )
 
+if(WIN32)
+target_link_libraries (${target}-static 
+   libsbml-static
+   libf2c
+)
+endif()
+
+if(APPLE)
+target_link_libraries (${target}-static 
+   sbml-static
+   f2c.a
+)
+endif()
 #Libxml we can't build right now
 if(${BORLAND})
-target_link_libraries (${target}-static libxml2_xe)
+target_link_libraries (${target}-static 
+libxml2_xe
+)
 endif()
 
 if(${MSVC})
-target_link_libraries (${target}-static libxml2)
+target_link_libraries(${target}-static libxml2)
 endif()
 
 if(${UNIX})
