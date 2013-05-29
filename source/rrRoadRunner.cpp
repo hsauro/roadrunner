@@ -52,7 +52,7 @@ mSteadyStateThreshold(1.E-2),
 mSimulation(NULL),
 mCurrentSBMLFileName(""),
 mCVode(NULL),
-mSteadyStateSolver(NULL),
+//mSteadyStateSolver(NULL),
 mComputeAndAssignConservationLaws("Conservation", false, "enables (=true) or disables \
 (=false) the conservation analysis \
 of models for timecourse simulations."),
@@ -92,11 +92,11 @@ mRRCoreCapabilities("Road Runner Core", "", "Core RoadRunner Parameters")
     	mCapabilities.add(mCVode->getCapability());
     }
 
-	mSteadyStateSolver = getNLEQInterface();
-    if(mSteadyStateSolver)
-    {
-    	mCapabilities.add(mSteadyStateSolver->getCapability());
-    }
+    // we currently use NLEQInterface as the only steady state solver.
+    // should this change in the future, this should be replaced
+    // with a factory pattern.
+    NLEQInterface ss = NLEQInterface();
+    mCapabilities.add(ss.getCapability());
 }
 
 RoadRunner::~RoadRunner()
@@ -182,6 +182,7 @@ bool RoadRunner::setCompiler(const string& compiler)
     return mModelGenerator ? mModelGenerator->setCompiler(compiler) : false;
 }
 
+/*
 NLEQInterface* RoadRunner::getNLEQInterface()
 {
     if(!mSteadyStateSolver)// && mModel != NULL)
@@ -190,6 +191,7 @@ NLEQInterface* RoadRunner::getNLEQInterface()
     }
     return dynamic_cast<NLEQInterface*>(mSteadyStateSolver);
 }
+*/
 
 bool RoadRunner::isModelLoaded()
 {
@@ -949,24 +951,19 @@ double RoadRunner::steadyState()
             Log(lError)<<"Kinsol solver is not enabled...";
             return -1;
     }
-    else
-    {
-        mSteadyStateSolver = new NLEQInterface(mModel);
-    }
+
+    NLEQInterface steadyStateSolver(mModel);
 
     //Get a std vector for the solver
     vector<double> someAmounts;
     copyCArrayToStdVector(mModel->getModelData().amounts, someAmounts, mModel->getNumIndependentVariables());
 
-    double ss = mSteadyStateSolver->solve(someAmounts);
+    double ss = steadyStateSolver.solve(someAmounts);
     if(ss < 0)
     {
         Log(lError)<<"Steady State solver failed...";
     }
     mModel->convertToConcentrations();
-
-    delete mSteadyStateSolver;
-    mSteadyStateSolver = NULL;
 
     return ss;
 }

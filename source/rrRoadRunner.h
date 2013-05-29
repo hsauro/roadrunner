@@ -57,7 +57,6 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		SBMLModelSimulation            *mSimulation;
 
 		CvodeInterface                 *mCVode;
-		SteadyStateSolver              *mSteadyStateSolver;
 		vector<SelectionRecord>         mSelectionList;
 		ModelGenerator                 *mModelGenerator;
 
@@ -149,7 +148,7 @@ class RR_DECLSPEC RoadRunner : public rrObject
         bool                            unLoadModel();
         bool                            unLoadModelDLL();
         CvodeInterface*                 getCVodeInterface();
-        NLEQInterface*                  getNLEQInterface();
+        //NLEQInterface*                  getNLEQInterface();
         int 							createDefaultSteadyStateSelectionList();
         int                             createDefaultTimeCourseSelectionList();
 		int                             createTimeCourseSelectionList();
