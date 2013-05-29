@@ -135,6 +135,7 @@ if(UNIX)
 target_link_libraries (${target}    
  pthread
  sbml
+ dl
 )
 else()
 target_link_libraries (${target}    
@@ -193,7 +194,11 @@ target_link_libraries (${target}-static libxml2)
 endif()
 
 if(${UNIX})
-target_link_libraries (${target}-static xml2)
+target_link_libraries (${target}-static 
+  xml2
+  dl
+  pthread
+)
 endif()
 
 if(BUILD_TESTS)

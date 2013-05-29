@@ -51,7 +51,7 @@ STATIC_LIBSTRUCT
 )
 
 target_link_libraries ( ${target} 
-roadrunner
+roadrunner-static
 blas
 lapack
 f2c
