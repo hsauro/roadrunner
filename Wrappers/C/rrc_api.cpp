@@ -3145,18 +3145,17 @@ bool rrCallConv freeMatrix(RRMatrixHandle matrix)
 
 bool rrCallConv freeResult(RRResultHandle handle)
 {
-    try
+    if (handle)
     {
+        for (int i = 0; i < handle->CSize; i++)
+        {
+            delete [] handle->ColumnHeaders[i];
+        }
+        delete [] handle->ColumnHeaders;
+        delete [] handle->Data;
         delete handle;
-        return true;
     }
-    catch(Exception& ex)
-    {
-        stringstream msg;
-        msg<<"RoadRunner exception: "<<ex.what()<<endl;
-        setError(msg.str());
-        return false;
-    }
+    return true;
 }
 
 bool rrCallConv freeText(char* text)
