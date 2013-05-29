@@ -9,10 +9,14 @@
 #include "rrStringList.h"
 #include "rrUtils.h"
 #include "rrException.h"
+
+
 //---------------------------------------------------------------------------
 
 namespace rr
 {
+
+using namespace rrc;
 
 StringList::StringList()
 {}
@@ -22,18 +26,41 @@ StringList::StringList(const vector<string>& strings)
 mStrings(strings)
 {}
 
-StringList::~StringList()
-{}
+StringList::StringList(RRStringArrayHandle cp)
+{
+	if(!cp)
+    {
+    	return;
+    }
+
+	for(int i = 0; i < cp->Count; i++)
+    {
+    	mStrings.push_back(cp->String[i]);
+    }
+}
 
 StringList::StringList(const string& str, const string& delimiter)
 {
-    mStrings = SplitString(str, delimiter);
+    mStrings = splitString(str, delimiter);
+}
+
+StringList::StringList(char** aList, const int& count)
+{
+	//Copy C stringlist into the container..
+    char* aString;
+    for(int i = 0; i < count; i++)
+	{
+        mStrings.push_back(aList[i]);
+    }
 }
 
 StringList::StringList(const StringList& cp)
 {
     mStrings = cp.mStrings;
 }
+
+StringList::~StringList()
+{}
 
 vector<string>::iterator StringList::begin()
 {
@@ -112,7 +139,7 @@ StringList StringList::operator-(const StringList& rhs)
     for(int i = 0; i < Count(); i++)
     {
         string item = mStrings[i] + "-" + rhs[i];
-        newList.Add(item);
+        newList.add(item);
     }
 
     return newList;
@@ -127,11 +154,6 @@ void StringList::InsertAt(const int& index, const string& item)
     }
 }
 
-void StringList::Add(const string& str)
-{
-    mStrings.push_back(str);
-}
-
 void StringList::Append(const StringList& list)
 {
 	for(int i = 0; i < list.Count(); i++)
@@ -140,19 +162,25 @@ void StringList::Append(const StringList& list)
     }
 }
 
-void StringList::push_back(const string& item)
+void StringList::add(const string& item)
 {
-    Add(item);
+    mStrings.push_back(item);
 }
 
 int StringList::find(const string& item)
 {
-    return rr::IndexOf(mStrings, item);
+    return rr::indexOf(mStrings, item);
 }
 
-int StringList::IndexOf(const string& item)
+int StringList::indexOf(const string& item)
 {
-    return rr::IndexOf(mStrings, item);
+    return rr::indexOf(mStrings, item);
+}
+
+void StringList::removeAt(const int& index)
+{
+	mLI = mStrings.begin() + index;
+	mStrings.erase(mLI);
 }
 
 bool StringList::Contains(const string& item) const
@@ -178,6 +206,12 @@ void StringList::empty()
 StringList& StringList::operator=(const StringList& rhs)
 {
     mStrings = rhs.mStrings;
+	return *this;
+}
+
+StringList& StringList::operator=(const vector<string>& rhs)
+{
+    mStrings = rhs;
 	return *this;
 }
 

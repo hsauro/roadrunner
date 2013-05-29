@@ -1,10 +1,8 @@
 #ifndef rrRoadRunnerH
 #define rrRoadRunnerH
-
 #include <string>
 #include "rr-libstruct/lsMatrix.h"
 #include "rr-libstruct/lsLibStructural.h"
-
 #include "rrObject.h"
 #include "rrTVariableType.h"
 #include "rrTParameterType.h"
@@ -12,9 +10,9 @@
 #include "rrNLEQInterface.h"
 #include "rrStringList.h"
 #include "rrStringListContainer.h"
-#include "rrMisc.h"
+#include "rrSelectionRecord.h"
 #include "rrTextWriter.h"
-#include "rrSimulationData.h"
+#include "rrRoadRunnerData.h"
 #include "rrSimulationSettings.h"
 #include "rrCompiler.h"
 #include "rrArrayList.h"
@@ -25,6 +23,8 @@
 #include "rrNewArrayList.h"
 #include "rrPluginManager.h"
 #include "rrModelSharedLibrary.h"
+#include "rrCapabilities.h"
+#include "rrParameter.h"
 #include "Poco/Thread.h"
 
 namespace rr
@@ -46,31 +46,29 @@ class RR_DECLSPEC RoadRunner : public rrObject
     	int	  							mInstanceID;
 		bool                            mUseKinsol;
 		const double                    mDiffStepSize;
-
-		/**
-		 * Folder for XML models
-		 */
-        const string					mModelFolder;
-
+		Capabilities					mCapabilities;
+		Capability						mRRCoreCapabilities;
+        const string					mModelFolder;			//Folder for XML models
 		const double                    mSteadyStateThreshold;
-        DoubleMatrix                    mRawSimulationData;
-		SimulationData                  mSimulationData;
+        DoubleMatrix                    mRawRoadRunnerData;
+		RoadRunnerData                  mRoadRunnerData;
+	    string 							mSupportCodeFolder;		//The compiler needs this in order to compile models
 
+		string                   		mTempFileFolder;
         string							mCurrentSBMLFileName;
 		SBMLModelSimulation            *mSimulation;
 
 		CvodeInterface                 *mCVode;
-		ISteadyStateSolver             *mSteadyStateSolver;
-		vector<TSelectionRecord>        mSelectionList;
+		SteadyStateSolver              *mSteadyStateSolver;
+		vector<SelectionRecord>         mSelectionList;
+		ModelGenerator                 *mModelGenerator;    //Pointer to one of the below ones..
+		CSharpModelGenerator                *mCSharpGenerator;
+		CModelGenerator                     *mCGenerator;
+//		Compiler                        mCompiler;
 
-		/**
-		 * Model generator we obtain from the model gen factory.
-		 */
-		ModelGenerator                 *mModelGenerator;
+		Parameter<bool>            		mComputeAndAssignConservationLaws;
 
-		bool                     		mComputeAndAssignConservationLaws;
-
-		vector<TSelectionRecord>        mSteadyStateSelection;
+		vector<SelectionRecord>         mSteadyStateSelection;
 		double                          mTimeStart;
 		double                          mTimeEnd;
 		int                             mNumPoints;
@@ -97,13 +95,11 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		bool                            populateResult();
 		bool                            isNleqAvailable();
 
-		double                          getValueForRecord(const TSelectionRecord& record);
+
 		double                          getNthSelectedOutput(const int& index, const double& dCurrentTime);
 		vector<double>                  buildModelEvalArgument();
 		double                          getVariableValue(const TVariableType& variableType, const int& variableIndex);
 
-
-		vector<TSelectionRecord>        getSteadyStateSelection(const StringList& newSelectionList);
 		StringList                      getParameterIds();
 		bool 							loadSBMLIntoNOM(const string& sbml);
 
@@ -132,6 +128,10 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		NOMSupport*						getNOM();
 		string							getInfo();
         PluginManager&					getPluginManager();
+
+
+		vector<SelectionRecord>         getSteadyStateSelection(const StringList& newSelectionList);
+		vector<SelectionRecord>         getSelectionList();
 
 		/**
 		 * The Compiler that the ModelGenerator is using to compile / interpret sbml code.
@@ -173,8 +173,12 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		DoubleMatrix                    simulate();
 		bool                            simulate2();
 		DoubleMatrix                    simulateEx(const double& startTime, const double& endTime, const int& numberOfPoints);
+		bool                            simulate2Ex(const double& startTime = 0, const double& endTime = 5, const int& numberOfPoints = 50);
+
+		double                          getValueForRecord(const SelectionRecord& record);
+
 		void                            partOfSimulation(SBMLModelSimulation* simulation){mSimulation = simulation;}
-		SimulationData                  getSimulationResult();
+		RoadRunnerData                  getSimulationResult();
         bool							loadSimulationSettings(const string& fName);
 		bool                            useSimulationSettings(SimulationSettings& settings);
 		DoubleMatrix                    runSimulation();
@@ -216,11 +220,21 @@ class RR_DECLSPEC RoadRunner : public rrObject
  		// ---------------------------------------------------------------------
 		// Start of Level 2 API Methods
 		// ---------------------------------------------------------------------
-		string                          getCapabilities();
-		void                            setTolerances(const double& aTol, const double& rTol);
-		void                            setTolerances(const double& aTol, const double& rTol, const int& maxSteps);
-		void                            correctMaxStep();
+		Capabilities&                   getCapabilities();
+		Capability* 	                getCapability(const string& cap_name);
+		string                          getCapabilitiesAsXML();
+		StringList                      getListOfCapabilities();
+		StringList                      getListOfParameters(const string& capName);
+
+        bool						  	addCapability(Capability& cap);
+        bool						  	addCapabilities(Capabilities& caps);
+        bool							setCapabilityParameter(const string& cap, const string& parameter, const string& value);
+
 		void                            setCapabilities(const string& capsStr);
+
+		void                            setTolerances(const double& aTol, const double& rTol);
+		void                            correctMaxStep();
+
 		bool                            setValue(const string& sId, const double& dValue);
 		double                          getValue(const string& sId);
 		NewArrayList                    getAvailableTimeCourseSymbols();
@@ -268,10 +282,10 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		NewArrayList                 	getAvailableSteadyStateSymbols();
 		StringList                   	getSteadyStateSelectionList();
 		void                            setSteadyStateSelectionList(const StringList& newSelectionList);
-		double                          computeSteadyStateValue(const TSelectionRecord& record);
+		double                          computeSteadyStateValue(const SelectionRecord& record);
 		vector<double>                  computeSteadyStateValues();
 		vector<double>                  computeSteadyStateValues(const StringList& selection);
-		vector<double>                  computeSteadyStateValues(const vector<TSelectionRecord>& selection, const bool& computeSteadyState);
+		vector<double>                  computeSteadyStateValues(const vector<SelectionRecord>& selection, const bool& computeSteadyState);
 		double                          computeSteadyStateValue(const string& sId);
 		vector<double>                  getSelectedValues();
 
@@ -333,6 +347,7 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		//These functions are better placed in a separate file, as non class members, but part of the roadrunner namespace?
 		string                          getName();
 		string                          getVersion();
+		string							getExtendedVersionInfo();	//Include info about dependent libs versions..
 		string                          getAuthor();
 		string                          getDescription();
 		string                          getDisplayName();

@@ -115,7 +115,7 @@ typedef struct SModelData
     TPerformEventAssignmentDelegate*    performEventAssignments;
 
 } ModelData;
-
+//#pragma pack(pop)
 
 #if defined __cplusplus
 }

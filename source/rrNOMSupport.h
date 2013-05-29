@@ -11,19 +11,26 @@
 #include "rrObject.h"
 #include "rrStringListContainer.h"
 #include "rrHashTable.h"
+
+//---------------------------------------------------------------------------
+namespace rr
+{
 using std::vector;
 using std::string;
 using std::pair;
 using std::list;
 using std::stack;
 using std::deque;
-//---------------------------------------------------------------------------
-namespace rr
-{
 
 //You HAVE to define LIBSBML_USE_CPP_NAMESPACE for your project to compile this!
-using namespace libsbml;
-
+//using namespace libsbml;
+using libsbml::Model;
+using libsbml::SBMLDocument;
+using libsbml::ASTNode;
+using libsbml::SBase;
+using libsbml::Rule;
+using libsbml::UnitDefinition;
+using libsbml::KineticLaw;
 /**
  * Methods to query various information from an SBML document.
  *
@@ -32,6 +39,10 @@ using namespace libsbml;
  */
 class RR_DECLSPEC NOMSupport : public rrObject
 {
+//        SBMLDocument           *mSBMLDoc;
+//        Model                  *mModel;
+//        ArrayList               returnUnitDefinition(UnitDefinition oDefinition);
+//        const ASTNode*          changeSymbol(ASTNode* node, const string& time, const int& targetType);
 public:
     NOMSupport();
     virtual                ~NOMSupport();

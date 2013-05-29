@@ -3,7 +3,6 @@
 #endif
 #pragma hdrstop
 #include <iostream>
-#include <complex>
 #include "Poco/File.h"
 #include "rrRoadRunner.h"
 #include "rrException.h"
@@ -19,7 +18,7 @@
 #include "rr-libstruct/lsLibla.h"
 #include "rrModelState.h"
 #include "rrArrayList2.h"
-#include "rrCapsSupport.h"
+#include "rrCapabilities.h"
 #include "rrConstants.h"
 #include "rrVersionInfo.h"
 //---------------------------------------------------------------------------
@@ -30,7 +29,7 @@ using namespace std;
 using namespace ls;
 
 
-//The incance count increases/decreases as instances are created/destroyed.
+//The instance count increases/decreases as instances are created/destroyed.
 int                   RoadRunner::mInstanceCount = 0;
 Mutex                 RoadRunner::mLibSBMLMutex;
 
@@ -54,34 +53,57 @@ mSimulation(NULL),
 mCurrentSBMLFileName(""),
 mCVode(NULL),
 mSteadyStateSolver(NULL),
-mComputeAndAssignConservationLaws(false),
+mComputeAndAssignConservationLaws("Conservation", false, "enables (=true) or disables \
+(=false) the conservation analysis \
+of models for timecourse simulations."),
 mTimeStart(0),
 mTimeEnd(10),
 mNumPoints(21),
 mModel(NULL),
 mCurrentSBML(""),
-mPluginManager(JoinPath(getParentFolder(supportCodeFolder), "plugins")),
-mConservedTotalChanged(false)
+mPluginManager(joinPath(getParentFolder(supportCodeFolder), "plugins")),
+mConservedTotalChanged(false),
+mCapabilities("RoadRunner", "RoadRunner Capabilities"),
+mRRCoreCapabilities("Road Runner Core", "", "Core RoadRunner Parameters")
 {
+	//Roadrunner is a "single" capability with many parameters
+	mRRCoreCapabilities.addParameter(&mComputeAndAssignConservationLaws);
+
+    mCapabilities.add(mRRCoreCapabilities);
     Log(lDebug4)<<"In RoadRunner ctor";
 
     // for now, dump out who we are
-    cout << "RoadRunner::RoadRunner(...), running refactored modelgen Rule2\n";
+    Log(lDebug3) << "RoadRunner::RoadRunner(...), running refactored modelgen NOMFix\n";
 
     mModelGenerator = ModelGeneratorFactory::createModelGenerator("CModelGenerator", tempFolder, supportCodeFolder, compiler);
 
+    setTempFileFolder(tempFolder);
     mPluginManager.setRoadRunnerInstance(this);
 
-    //Increase instance count..
-    mInstanceCount++;
+	//Increase instance count..
+	mInstanceCount++;
     mInstanceID = mInstanceCount;
+
+	//Setup additonal objects
+    mCVode = new CvodeInterface(this, NULL);
+
+    if(mCVode)
+    {
+    	mCapabilities.add(mCVode->getCapability());
+    }
+
+	mSteadyStateSolver = getNLEQInterface();
+    if(mSteadyStateSolver)
+    {
+    	mCapabilities.add(mSteadyStateSolver->getCapability());
+    }
 }
 
 RoadRunner::~RoadRunner()
 {
     Log(lDebug4)<<"In RoadRunner DTOR";
 
-    cout << "In " << __FUNC__ << "\n";
+    Log(lDebug3) << "In " << __FUNC__ << "\n";
 
     delete mModelGenerator;
     delete mModel;
@@ -96,22 +118,39 @@ ExecutableModel* RoadRunner::getModel()
     return mModel;
 }
 
+vector<SelectionRecord> RoadRunner::getSelectionList()
+{
+	return mSelectionList;
+}
+
 string RoadRunner::getInfo()
 {
-    stringstream info;
-    info<<"RoadRunner Info ("<<getCurrentDateTime()<<")\n";
-    info<<"\n\n";
+	stringstream info;
     info<<"Model Loaded: "<<(mModel == NULL ? "false" : "true")<<endl;
     if(mModel)
     {
-        info << mModel->getInfo();
+    	info<<"ModelName: "			<<  mModel->getModelName()<<endl;
+//        info<<"Model DLL Loaded: "	<< (mModel->mDLL.isLoaded() ? "true" : "false")	<<endl;
+//        info<<"Initialized: "		<< (mModel->mIsInitialized ? "true" : "false")	<<endl;
     }
-    info<<"ConservationAnalysis: "    <<    (mComputeAndAssignConservationLaws ? "true" : "false")<<endl;
-    info<<"libSBML version: "        <<    getlibSBMLVersion()<<endl;
-    info<<"Temporary folder: "        <<    getTempFolder()<<endl;
+    info<<"ConservationAnalysis: "	<<	(mComputeAndAssignConservationLaws.getValue() ? "true" : "false")<<endl;
+    info<<"libSBML version: "		<<	getlibSBMLVersion()<<endl;
+    info<<"Temporary folder: "		<<	getTempFolder()<<endl;
+    info<<"Compiler location: "		<<	getCompiler()->getCompilerLocation()<<endl;
+    info<<"Support Code Folder: "	<<	getCompiler()->getSupportCodeFolder()<<endl;
+    info<<"Working Directory: "		<<	getCWD()<<endl;
+	return info.str();
+}
 
-    info<<"Working Directory: "        <<    getCWD()<<endl;
-    return info.str();
+string RoadRunner::getExtendedVersionInfo()
+{
+	stringstream info;
+    info<<"libSBML version: "		<<	getlibSBMLVersion()<<endl;
+    info<<"Temporary folder: "		<<	getTempFolder()<<endl;
+    info<<"Compiler location: "		<<	getCompiler()->getCompilerLocation()<<endl;
+    info<<"Support Code Folder: "	<<	getCompiler()->getSupportCodeFolder()<<endl;
+    info<<"Working Directory: "		<<	getCWD()<<endl;
+	return info.str();
 }
 
 PluginManager&    RoadRunner::getPluginManager()
@@ -131,7 +170,7 @@ Compiler* RoadRunner::getCompiler()
 
 CvodeInterface* RoadRunner::getCVodeInterface()
 {
-    if(!mCVode && mModel != NULL)
+    if(!mCVode)// && mModel != NULL)
     {
         mCVode = new CvodeInterface(this, mModel);
     }
@@ -145,7 +184,7 @@ bool RoadRunner::setCompiler(const string& compiler)
 
 NLEQInterface* RoadRunner::getNLEQInterface()
 {
-    if(!mSteadyStateSolver && mModel != NULL)
+    if(!mSteadyStateSolver)// && mModel != NULL)
     {
         mSteadyStateSolver = new NLEQInterface(mModel);
     }
@@ -168,17 +207,32 @@ bool RoadRunner::useSimulationSettings(SimulationSettings& settings)
 
 bool RoadRunner::computeAndAssignConservationLaws()
 {
-    return mComputeAndAssignConservationLaws;
+	return mComputeAndAssignConservationLaws.getValue();
 }
 
 bool RoadRunner::setTempFileFolder(const string& folder)
 {
-    return mModelGenerator ? mModelGenerator->setTemporaryDirectory(folder) : false;
+	if(folderExists(folder))
+	{
+		Log(lDebug)<<"Setting temp file folder to "<<folder;
+	    mModelGenerator->setTemporaryDirectory(folder);
+		mTempFileFolder = folder;
+		return true;
+	}
+	else
+	{
+    	stringstream msg;
+        msg<<"The folder: "<<folder<<" don't exist...";
+		Log(lError)<<msg.str();
+
+		CoreException e(msg.str());
+        throw(e);
+	}
 }
 
 string RoadRunner::getTempFolder()
 {
-    return mModelGenerator ? mModelGenerator->getTemporaryDirectory() : "";
+	return mTempFileFolder;
 }
 
 int RoadRunner::createDefaultTimeCourseSelectionList()
@@ -186,10 +240,10 @@ int RoadRunner::createDefaultTimeCourseSelectionList()
     StringList theList;
     StringList oFloating  = getFloatingSpeciesIds();
 
-    theList.Add("time");
+	theList.add("time");
     for(int i = 0; i < oFloating.Count(); i++)
     {
-        theList.Add(oFloating[i]);
+        theList.add(oFloating[i]);
     }
 
     setTimeCourseSelectionList(theList);
@@ -210,13 +264,13 @@ int RoadRunner::createTimeCourseSelectionList()
     if(theList.Count() < 2)
     {
         //AutoSelect
-        theList.Add("Time");
+        theList.add("Time");
 
         //Get All floating species
        StringList oFloating  = getFloatingSpeciesIds();
        for(int i = 0; i < oFloating.Count(); i++)
        {
-            theList.Add(oFloating[i]);
+            theList.add(oFloating[i]);
        }
     }
 
@@ -244,7 +298,7 @@ ModelGenerator* RoadRunner::getModelGenerator()
 //NOM exposure ====================================================
 string RoadRunner::getParamPromotedSBML(const string& sArg)
 {
-    NOMSupport::getParamPromotedSBML(sArg);
+    return NOMSupport::getParamPromotedSBML(sArg);
 }
 
 
@@ -265,7 +319,7 @@ bool RoadRunner::initializeModel()
         mModel->computeRules(mModel->getModelData().y, mModel->getModelData().ySize);
         mModel->convertToAmounts();
 
-        if (mComputeAndAssignConservationLaws)
+        if (mComputeAndAssignConservationLaws.getValue())
         {
             mModel->computeConservedTotals();
         }
@@ -287,38 +341,38 @@ bool RoadRunner::initializeModel()
     }
 }
 
-SimulationData RoadRunner::getSimulationResult()
+RoadRunnerData RoadRunner::getSimulationResult()
 {
-    return mSimulationData;
+    return mRoadRunnerData;
 }
 
-double RoadRunner::getValueForRecord(const TSelectionRecord& record)
+double RoadRunner::getValueForRecord(const SelectionRecord& record)
 {
     double dResult;
 
     switch (record.selectionType)
     {
-        case TSelectionType::clFloatingSpecies:
+        case SelectionType::clFloatingSpecies:
             dResult = mModel->getConcentration(record.index);
         break;
 
-        case TSelectionType::clBoundarySpecies:
+        case SelectionType::clBoundarySpecies:
             dResult = mModel->getModelData().bc[record.index];
         break;
 
-        case TSelectionType::clFlux:
+        case SelectionType::clFlux:
             dResult = mModel->getModelData().rates[record.index];
         break;
 
-        case TSelectionType::clRateOfChange:
+        case SelectionType::clRateOfChange:
             dResult = mModel->getModelData().dydt[record.index];
         break;
 
-        case TSelectionType::clVolume:
+        case SelectionType::clVolume:
             dResult = mModel->getModelData().c[record.index];
         break;
 
-        case TSelectionType::clParameter:
+        case SelectionType::clParameter:
             {
                 if (record.index > ((mModel->getModelData().gpSize) - 1))
                 {
@@ -331,11 +385,11 @@ double RoadRunner::getValueForRecord(const TSelectionRecord& record)
             }
         break;
 
-        case TSelectionType::clFloatingAmount:
+        case SelectionType::clFloatingAmount:
             dResult = mModel->getModelData().amounts[record.index];
         break;
 
-        case TSelectionType::clBoundaryAmount:
+        case SelectionType::clBoundaryAmount:
             int nIndex;
             if (mModel->getCompartments().find(mModel->getBoundarySpecies()[record.index].compartmentName, nIndex))
             {
@@ -347,16 +401,16 @@ double RoadRunner::getValueForRecord(const TSelectionRecord& record)
             }
         break;
 
-        case TSelectionType::clElasticity:
+        case SelectionType::clElasticity:
             dResult = getEE(record.p1, record.p2, false);
         break;
 
-        case TSelectionType::clUnscaledElasticity:
+        case SelectionType::clUnscaledElasticity:
             dResult = getuEE(record.p1, record.p2, false);
         break;
 
         // ********  Todo: Enable this.. ***********
-        case TSelectionType::clEigenValue:
+        case SelectionType::clEigenValue:
 //            vector< complex<double> >oComplex = LA.GetEigenValues(getReducedJacobian());
 //            if (oComplex.Length > record.index)
 //            {
@@ -367,7 +421,7 @@ double RoadRunner::getValueForRecord(const TSelectionRecord& record)
                 dResult = 0.0;
         break;
 
-        case TSelectionType::clStoichiometry:
+        case SelectionType::clStoichiometry:
             dResult = mModel->getModelData().sr[record.index];
         break;
 
@@ -380,9 +434,9 @@ double RoadRunner::getValueForRecord(const TSelectionRecord& record)
 
 double RoadRunner::getNthSelectedOutput(const int& index, const double& dCurrentTime)
 {
-    TSelectionRecord record = mSelectionList[index];
+    SelectionRecord record = mSelectionList[index];
 
-    if (record.selectionType == TSelectionType::clTime)
+    if (record.selectionType == SelectionType::clTime)
     {
         return dCurrentTime;
     }
@@ -498,7 +552,7 @@ bool RoadRunner::simulateSBMLFile(const string& fileName, const bool& useConserv
     mCurrentSBMLFileName = fileName;
     loadSBML(sbml);
 
-    mRawSimulationData = simulate();
+    mRawRoadRunnerData = simulate();
 
     StringList list = getTimeCourseSelectionList();
     return true;
@@ -506,7 +560,7 @@ bool RoadRunner::simulateSBMLFile(const string& fileName, const bool& useConserv
 
 bool RoadRunner::loadSBMLFromFile(const string& fileName, const bool& forceReCompile)
 {
-    if(!FileExists(fileName))
+	if(!fileExists(fileName))
     {
         stringstream msg;
         msg<<"File: "<<fileName<<" don't exist";
@@ -556,11 +610,11 @@ string RoadRunner::createModelName(const string& mCurrentSBMLFileName)
     string modelName;
     if(mCurrentSBMLFileName.size())
     {
-        modelName = ExtractFileNameNoExtension(mCurrentSBMLFileName);
+    	modelName = getFileNameNoExtension(mCurrentSBMLFileName);
     }
     else
     {
-        modelName = ToString(mInstanceID);
+		modelName = toString(mInstanceID);
     }
     return modelName;
 }
@@ -569,7 +623,7 @@ bool cleanFolder(const string& folder, const string& baseName, const StringList&
 {
     for(int i = 0; i < extensions.Count(); i++)
        {
-        string aFName = JoinPath(folder, baseName) + "." + extensions[i];
+    	string aFName = joinPath(folder, baseName) + "." + extensions[i];
         Poco::File aFile(aFName);
         if(aFile.exists())
         {
@@ -697,7 +751,7 @@ void RoadRunner::reset()
 
         mModel->convertToAmounts();
 
-        if (mComputeAndAssignConservationLaws && !mConservedTotalChanged)
+        if (mComputeAndAssignConservationLaws.getValue() && !mConservedTotalChanged)
         {
             mModel->computeConservedTotals();
         }
@@ -734,12 +788,13 @@ DoubleMatrix RoadRunner::simulate()
         {
             throw Exception("Error: time end must be greater than time start");
         }
-        return runSimulation();
+    	return runSimulation();
     }
     catch (const Exception& e)
     {
-        throw CoreException("Unexpected error from simulate(): " + e.Message());
+        Log(lWarning)<<"Problem in simulate: "<<e.Message();
     }
+
 }
 
 bool RoadRunner::simulate2()
@@ -750,7 +805,22 @@ bool RoadRunner::simulate2()
         throw(Exception("There is no model loaded, can't simulate"));
     }
 
-     mRawSimulationData = simulate();
+ 	mRawRoadRunnerData = simulateEx(mTimeStart, mTimeEnd, mNumPoints);
+
+    //Populate simulation result
+    populateResult();
+    return true;
+}
+
+bool RoadRunner::simulate2Ex(const double& startTime, const double& endTime, const int& numberOfPoints)
+{
+    if(!mModel)
+    {
+        Log(lError)<<"No model is loaded, can't simulate..";
+        throw(Exception("There is no model loaded, can't simulate"));
+    }
+
+ 	mRawRoadRunnerData = simulateEx(startTime, endTime, numberOfPoints);
 
     //Populate simulation result
     populateResult();
@@ -759,10 +829,10 @@ bool RoadRunner::simulate2()
 
 bool RoadRunner::populateResult()
 {
-    NewArrayList l     = getAvailableTimeCourseSymbols();
     StringList list = getTimeCourseSelectionList();
-    mSimulationData.setColumnNames(list);
-    mSimulationData.setData(mRawSimulationData);
+
+    mRoadRunnerData.setColumnNames(list);
+    mRoadRunnerData.setData(mRawRoadRunnerData);
     return true;
 }
 
@@ -786,9 +856,9 @@ DoubleMatrix RoadRunner::simulateEx(const double& startTime, const double& endTi
         mTimeEnd            = endTime;
         mTimeStart          = startTime;
         mNumPoints          = numberOfPoints;
-        mRawSimulationData  = runSimulation();
+        mRawRoadRunnerData  = runSimulation();
         populateResult();
-        return mRawSimulationData;
+        return mRawRoadRunnerData;
     }
     catch(const Exception& e)
     {
@@ -803,7 +873,7 @@ StringList RoadRunner::getTimeCourseSelectionList()
 
     if (!mModel)
     {
-        oResult.Add("time");
+        oResult.add("time");
         return oResult;
     }
 
@@ -814,51 +884,51 @@ StringList RoadRunner::getTimeCourseSelectionList()
     StringList oRates       = getRateOfChangeIds();
     StringList oParameters  = getParameterIds();
 
-    vector<TSelectionRecord>::iterator iter;
+    vector<SelectionRecord>::iterator iter;
 
     for(iter = mSelectionList.begin(); iter != mSelectionList.end(); iter++)
     {
-        TSelectionRecord record = (*iter);
+        SelectionRecord record = (*iter);
         switch (record.selectionType)
         {
-            case TSelectionType::clTime:
-                oResult.Add("time");
+            case SelectionType::clTime:
+                oResult.add("time");
                 break;
-            case TSelectionType::clBoundaryAmount:
-                oResult.Add(Format("[{0}]", oBoundary[record.index]));
+            case SelectionType::clBoundaryAmount:
+                oResult.add(format("[{0}]", oBoundary[record.index]));
                 break;
-            case TSelectionType::clBoundarySpecies:
-                oResult.Add(oBoundary[record.index]);
+            case SelectionType::clBoundarySpecies:
+                oResult.add(oBoundary[record.index]);
                 break;
-            case TSelectionType::clFloatingAmount:
-                oResult.Add(Format("[{0}]", oFloating[record.index]));
+            case SelectionType::clFloatingAmount:
+                oResult.add(format("[{0}]", oFloating[record.index]));
                 break;
-            case TSelectionType::clFloatingSpecies:
-                oResult.Add(oFloating[record.index]);
+            case SelectionType::clFloatingSpecies:
+                oResult.add(oFloating[record.index]);
                 break;
-            case TSelectionType::clVolume:
-                oResult.Add(oVolumes[record.index]);
+            case SelectionType::clVolume:
+                oResult.add(oVolumes[record.index]);
                 break;
-            case TSelectionType::clFlux:
-                oResult.Add(oFluxes[record.index]);
+            case SelectionType::clFlux:
+                oResult.add(oFluxes[record.index]);
                 break;
-            case TSelectionType::clRateOfChange:
-                oResult.Add(oRates[record.index]);
+            case SelectionType::clRateOfChange:
+                oResult.add(oRates[record.index]);
                 break;
-            case TSelectionType::clParameter:
-                oResult.Add(oParameters[record.index]);
+            case SelectionType::clParameter:
+                oResult.add(oParameters[record.index]);
                 break;
-            case TSelectionType::clEigenValue:
-                oResult.Add("eigen_" + record.p1);
+            case SelectionType::clEigenValue:
+                oResult.add("eigen_" + record.p1);
                 break;
-            case TSelectionType::clElasticity:
-                oResult.Add(Format("EE:{0},{1}", record.p1, record.p2));
+            case SelectionType::clElasticity:
+                oResult.add(format("EE:{0},{1}", record.p1, record.p2));
                 break;
-            case TSelectionType::clUnscaledElasticity:
-                oResult.Add(Format("uEE:{0},{1}", record.p1, record.p2));
+            case SelectionType::clUnscaledElasticity:
+                oResult.add(format("uEE:{0},{1}", record.p1, record.p2));
                 break;
-            case TSelectionType::clStoichiometry:
-                oResult.Add(record.p1);
+            case SelectionType::clStoichiometry:
+                oResult.add(record.p1);
                 break;
         }
     }
@@ -886,7 +956,7 @@ double RoadRunner::steadyState()
 
     //Get a std vector for the solver
     vector<double> someAmounts;
-    CopyCArrayToStdVector(mModel->getModelData().amounts, someAmounts, mModel->getNumIndependentVariables());
+    copyCArrayToStdVector(mModel->getModelData().amounts, someAmounts, mModel->getNumIndependentVariables());
 
     double ss = mSteadyStateSolver->solve(someAmounts);
     if(ss < 0)
@@ -955,12 +1025,12 @@ double RoadRunner::getParameterValue(const TParameterType& parameterType, const 
 //              + "By default roadRunner will discover conservation cycles and reduce the model accordingly.")
 void RoadRunner::computeAndAssignConservationLaws(const bool& bValue)
 {
-    if(bValue == mComputeAndAssignConservationLaws)
+	if(bValue == mComputeAndAssignConservationLaws.getValue())
     {
-        Log(lWarning)<<"The compute and assign conservation laws flag already set to : "<<ToString(bValue);
+    	Log(lWarning)<<"The compute and assign conservation laws flag already set to : "<<toString(bValue);
     }
 
-    mComputeAndAssignConservationLaws = bValue;
+    mComputeAndAssignConservationLaws.setValue(bValue);
 
     if(mModel != NULL)
     {
@@ -1041,7 +1111,7 @@ double RoadRunner::getEE(const string& reactionName, const string& parameterName
     // Check the reaction name
     if (!mModel->getReactions().find(reactionName, reactionIndex))
     {
-        throw CoreException(Format("Unable to locate reaction name: [{0}]", reactionName));
+        throw CoreException(format("Unable to locate reaction name: [{0}]", reactionName));
     }
 
     // Find out what kind of parameter we are dealing with
@@ -1063,7 +1133,7 @@ double RoadRunner::getEE(const string& reactionName, const string& parameterName
     }
     else
     {
-        throw CoreException(Format("Unable to locate variable: [{0}]", parameterName));
+        throw CoreException(format("Unable to locate variable: [{0}]", parameterName));
     }
 
     mModel->computeReactionRates(mModel->getTime(), mModel->getModelData().y);
@@ -1235,9 +1305,9 @@ void RoadRunner::setTimeCourseSelectionList(const StringList& _selList)
 
     for (int i = 0; i < _selList.Count(); i++)
     {
-        if (ToUpper(newSelectionList[i]) == ToUpper("time"))
+    	if (toUpper(newSelectionList[i]) == toUpper("time"))
         {
-            mSelectionList.push_back(TSelectionRecord(0, clTime));
+        	mSelectionList.push_back(SelectionRecord(0, clTime));
         }
 
         // Check for species
@@ -1245,20 +1315,20 @@ void RoadRunner::setTimeCourseSelectionList(const StringList& _selList)
         {
             if (newSelectionList[i] == fs[j])
             {
-                   mSelectionList.push_back(TSelectionRecord(j, TSelectionType::clFloatingSpecies));
+               	mSelectionList.push_back(SelectionRecord(j, SelectionType::clFloatingSpecies));
                 break;
             }
 
             if (newSelectionList[i] == "[" + fs[j] + "]")
             {
-                   mSelectionList.push_back(TSelectionRecord(j, clFloatingAmount));
+               	mSelectionList.push_back(SelectionRecord(j, clFloatingAmount));
                 break;
             }
 
             // Check for species rate of change
             if (newSelectionList[i] == fs[j] + "'")
             {
-                mSelectionList.push_back(TSelectionRecord(j, clRateOfChange));
+                mSelectionList.push_back(SelectionRecord(j, clRateOfChange));
                 break;
             }
         }
@@ -1268,12 +1338,12 @@ void RoadRunner::setTimeCourseSelectionList(const StringList& _selList)
         {
             if (newSelectionList[i] == bs[j])
             {
-                mSelectionList.push_back(TSelectionRecord(j, clBoundarySpecies));
+                mSelectionList.push_back(SelectionRecord(j, clBoundarySpecies));
                 break;
             }
             if (newSelectionList[i] == "[" + bs[j] + "]")
             {
-                mSelectionList.push_back(TSelectionRecord(j, clBoundaryAmount));
+                mSelectionList.push_back(SelectionRecord(j, clBoundaryAmount));
                 break;
             }
         }
@@ -1283,7 +1353,7 @@ void RoadRunner::setTimeCourseSelectionList(const StringList& _selList)
             // Check for reaction rate
             if (newSelectionList[i] == rs[j])
             {
-                mSelectionList.push_back(TSelectionRecord(j, clFlux));
+                mSelectionList.push_back(SelectionRecord(j, clFlux));
                 break;
             }
         }
@@ -1293,13 +1363,13 @@ void RoadRunner::setTimeCourseSelectionList(const StringList& _selList)
             // Check for volume
             if (newSelectionList[i] == vol[j])
             {
-                mSelectionList.push_back(TSelectionRecord(j, clVolume));
+                mSelectionList.push_back(SelectionRecord(j, clVolume));
                 break;
             }
 
             if (newSelectionList[i] == "[" + vol[j] + "]")
             {
-                mSelectionList.push_back(TSelectionRecord(j, clVolume));
+                mSelectionList.push_back(SelectionRecord(j, clVolume));
                 break;
             }
         }
@@ -1308,18 +1378,18 @@ void RoadRunner::setTimeCourseSelectionList(const StringList& _selList)
         {
             if (newSelectionList[i] == gp[j])
             {
-                mSelectionList.push_back(TSelectionRecord(j, clParameter));
+                mSelectionList.push_back(SelectionRecord(j, clParameter));
                 break;
             }
         }
 
         //((string)newSelectionList[i]).StartsWith("eigen_")
         string tmp = newSelectionList[i];
-        if (StartsWith(tmp, "eigen_"))
+        if (startsWith(tmp, "eigen_"))
         {
             string species = tmp.substr(tmp.find_last_of("eigen_") + 1);
-            mSelectionList.push_back(TSelectionRecord(i, clEigenValue, species));
-//            mSelectionList[i].selectionType = TSelectionType::clEigenValue;
+            mSelectionList.push_back(SelectionRecord(i, clEigenValue, species));
+//            mSelectionList[i].selectionType = SelectionType::clEigenValue;
 //            mSelectionList[i].p1 = species;
             int aIndex = fs.find(species);
             mSelectionList[i].index = aIndex;
@@ -1331,7 +1401,7 @@ void RoadRunner::setTimeCourseSelectionList(const StringList& _selList)
 //            string parameters = ((string)newSelectionList[i]).Substring(3);
 //            var p1 = parameters.Substring(0, parameters.IndexOf(","));
 //            var p2 = parameters.Substring(parameters.IndexOf(",") + 1);
-//            mSelectionList[i].selectionType = TSelectionType::clElasticity;
+//            mSelectionList[i].selectionType = SelectionType::clElasticity;
 //            mSelectionList[i].p1 = p1;
 //            mSelectionList[i].p2 = p2;
 //        }
@@ -1341,14 +1411,14 @@ void RoadRunner::setTimeCourseSelectionList(const StringList& _selList)
 //            string parameters = ((string)newSelectionList[i]).Substring(4);
 //            var p1 = parameters.Substring(0, parameters.IndexOf(","));
 //            var p2 = parameters.Substring(parameters.IndexOf(",") + 1);
-//            mSelectionList[i].selectionType = TSelectionType::clUnscaledElasticity;
+//            mSelectionList[i].selectionType = SelectionType::clUnscaledElasticity;
 //            mSelectionList[i].p1 = p1;
 //            mSelectionList[i].p2 = p2;
 //        }
 //        if (((string)newSelectionList[i]).StartsWith("eigen_"))
 //        {
 //            var species = ((string)newSelectionList[i]).Substring("eigen_".Length);
-//            mSelectionList[i].selectionType = TSelectionType::clEigenValue;
+//            mSelectionList[i].selectionType = SelectionType::clEigenValue;
 //            mSelectionList[i].p1 = species;
 //            mModelGenerator->floatingSpeciesConcentrationList.find(species, out mSelectionList[i].index);
 //        }
@@ -1356,7 +1426,7 @@ void RoadRunner::setTimeCourseSelectionList(const StringList& _selList)
 //        int index;
 //        if (sr.find((string)newSelectionList[i], out index))
 //        {
-//            mSelectionList[i].selectionType = TSelectionType::clStoichiometry;
+//            mSelectionList[i].selectionType = SelectionType::clStoichiometry;
 //            mSelectionList[i].index = index;
 //            mSelectionList[i].p1 = (string) newSelectionList[i];
 //        }
@@ -1364,7 +1434,7 @@ void RoadRunner::setTimeCourseSelectionList(const StringList& _selList)
 }
 
 // Help(
-//            "Carry out a single integration step using a stepsize as indicated in the method call (the intergrator is reset to take into account all variable changes). Arguments: double CurrentTime, double StepSize, Return Value: new CurrentTime."
+// "Carry out a single integration step using a stepsize as indicated in the method call (the intergrator is reset to take into account all variable changes). Arguments: double CurrentTime, double StepSize, Return Value: new CurrentTime."
 //            )
 double RoadRunner::oneStep(const double& currentTime, const double& stepSize)
 {
@@ -1449,7 +1519,7 @@ vector< Complex > RoadRunner::getEigenvaluesCpx()
         }
 
         DoubleMatrix mat;
-        if (mComputeAndAssignConservationLaws)
+		if (mComputeAndAssignConservationLaws.getValue())
         {
            mat = getReducedJacobian();
         }
@@ -1476,7 +1546,7 @@ DoubleMatrix RoadRunner::getFullJacobian()
         }
         DoubleMatrix uelast = getUnscaledElasticityMatrix();
         DoubleMatrix rsm;
-        if (mComputeAndAssignConservationLaws)
+		if (mComputeAndAssignConservationLaws.getValue())
         {
             rsm = getReorderedStoichiometryMatrix();
         }
@@ -1521,7 +1591,7 @@ DoubleMatrix RoadRunner::getReducedJacobian()
             throw CoreException(gEmptyModelMessage);
         }
 
-        if(mComputeAndAssignConservationLaws == false)
+        if(mComputeAndAssignConservationLaws.getValue() == false)
         {
             throw CoreException("The reduced Jacobian matrix can only be computed if conservation law detection is enabled");
         }
@@ -1790,17 +1860,17 @@ NewArrayList RoadRunner::getFluxControlCoefficientIds()
 
         for(int i = 0; i < oParameters.Count(); i++)
         {
-            oInner.Add("CC:" + s + "," + oParameters[i]);
+            oInner.add("CC:" + s + "," + oParameters[i]);
         }
 
         for(int i = 0; i < oBoundary.Count(); i++)
         {
-            oInner.Add("CC:" + s + "," + oBoundary[i]);
+            oInner.add("CC:" + s + "," + oBoundary[i]);
         }
 
         for(int i = 0; i < oConservation.Count(); i++)
         {
-            oInner.Add("CC:" + s + "," + oConservation[i]);
+            oInner.add("CC:" + s + "," + oConservation[i]);
         }
 
         oCCReaction.Add(oInner);
@@ -1834,17 +1904,17 @@ NewArrayList RoadRunner::getUnscaledFluxControlCoefficientIds()
 
         for(int i = 0; i < oParameters.Count(); i++)
         {
-            oInner.Add("uCC:" + s + "," + oParameters[i]);
+            oInner.add("uCC:" + s + "," + oParameters[i]);
         }
 
         for(int i = 0; i < oBoundary.Count(); i++)
         {
-            oInner.Add("uCC:" + s + "," + oBoundary[i]);
+            oInner.add("uCC:" + s + "," + oBoundary[i]);
         }
 
         for(int i = 0; i < oConservation.Count(); i++)
         {
-            oInner.Add("uCC:" + s + "," + oConservation[i]);
+            oInner.add("uCC:" + s + "," + oConservation[i]);
         }
 
         oCCReaction.Add(oInner);
@@ -1877,17 +1947,17 @@ NewArrayList RoadRunner::getConcentrationControlCoefficientIds()
 
         for(int i = 0; i < oParameters.Count(); i++)
         {
-            oInner.Add("CC:" + s + "," + oParameters[i]);
+            oInner.add("CC:" + s + "," + oParameters[i]);
         }
 
         for(int i = 0; i < oBoundary.Count(); i++)
         {
-            oInner.Add("CC:" + s + "," + oBoundary[i]);
+            oInner.add("CC:" + s + "," + oBoundary[i]);
         }
 
         for(int i = 0; i < oConservation.Count(); i++)
         {
-            oInner.Add("CC:" + s + "," + oConservation[i]);
+            oInner.add("CC:" + s + "," + oConservation[i]);
         }
 
         oCCFloating.Add(oInner);
@@ -1920,17 +1990,17 @@ NewArrayList RoadRunner::getUnscaledConcentrationControlCoefficientIds()
 
         for(int i = 0; i < oParameters.Count(); i++)
         {
-            oInner.Add("uCC:" + s + "," + oParameters[i]);
+            oInner.add("uCC:" + s + "," + oParameters[i]);
         }
 
         for(int i = 0; i < oBoundary.Count(); i++)
         {
-            oInner.Add("uCC:" + s + "," + oBoundary[i]);
+            oInner.add("uCC:" + s + "," + oBoundary[i]);
         }
 
         for(int i = 0; i < oConservation.Count(); i++)
         {
-            oInner.Add("uCC:" + s + "," + oConservation[i]);
+            oInner.add("uCC:" + s + "," + oConservation[i]);
         }
 
         oCCFloating.Add(oInner);
@@ -1964,22 +2034,22 @@ NewArrayList RoadRunner::getElasticityCoefficientIds()
 
         for(int j = 0; j < floatingSpeciesNames.Count(); j++)
         {
-            oInner.Add(Format("EE:{0},{1}", reac_name, floatingSpeciesNames[j]));
+            oInner.add(format("EE:{0},{1}", reac_name, floatingSpeciesNames[j]));
         }
 
         for(int j = 0; j < boundarySpeciesNames.Count(); j++)
         {
-            oInner.Add(Format("EE:{0},{1}", reac_name, boundarySpeciesNames[j]));
+            oInner.add(format("EE:{0},{1}", reac_name, boundarySpeciesNames[j]));
         }
 
         for(int j = 0; j < globalParameterNames.Count(); j++)
         {
-            oInner.Add(Format("EE:{0},{1}", reac_name, globalParameterNames[j]));
+            oInner.add(format("EE:{0},{1}", reac_name, globalParameterNames[j]));
         }
 
         for(int j = 0; j < conservationNames.Count(); j++)
         {
-            oInner.Add(Format("EE:{0},{1}", reac_name, conservationNames[j]));
+            oInner.add(format("EE:{0},{1}", reac_name, conservationNames[j]));
         }
 
         oCCReaction.Add(oInner);
@@ -2014,25 +2084,25 @@ NewArrayList RoadRunner::getUnscaledElasticityCoefficientIds()
         for(int j = 0; j < oFloating.Count(); j++)
         {
             string variable = oFloating[j];
-            oInner.Add(Format("uEE:{0},{1}", reac_name, variable));
+            oInner.add(format("uEE:{0},{1}", reac_name, variable));
         }
 
         for(int j = 0; j < oBoundary.Count(); j++)
         {
             string variable = oBoundary[j];
-            oInner.Add(Format("uEE:{0},{1}", reac_name, variable));
+            oInner.add(format("uEE:{0},{1}", reac_name, variable));
         }
 
         for(int j = 0; j < oGlobalParameters.Count(); j++)
         {
             string variable = oGlobalParameters[j];
-            oInner.Add(Format("uEE:{0},{1}", reac_name, variable));
+            oInner.add(format("uEE:{0},{1}", reac_name, variable));
         }
 
         for(int j = 0; j < oConservation.Count(); j++)
         {
             string variable = oConservation[j];
-            oInner.Add(Format("uEE:{0},{1}", reac_name, variable));
+            oInner.add(format("uEE:{0},{1}", reac_name, variable));
         }
 
         oCCReaction.Add(oInner);
@@ -2055,14 +2125,14 @@ StringList RoadRunner::getEigenvalueIds()
 
     for(int i = 0; i < floating.Count(); i++)
     {
-        result.Add("eigen_" + floating[i]);
+        result.add("eigen_" + floating[i]);
     }
 
     return result;
 }
 
 // Help(
-//            "Returns symbols of the currently loaded model, that can be used for steady state analysis. Format: array of arrays  { { \"groupname\", { \"item1\", \"item2\" ... } } }  or { { \"groupname\", { \"subgroup\", { \"item1\" ... } } } }."
+//            "Returns symbols of the currently loaded model, that can be used for steady state analysis. format: array of arrays  { { \"groupname\", { \"item1\", \"item2\" ... } } }  or { { \"groupname\", { \"subgroup\", { \"item1\" ... } } } }."
 //            )
 NewArrayList RoadRunner::getAvailableSteadyStateSymbols()
 {
@@ -2097,8 +2167,8 @@ int RoadRunner::createDefaultSteadyStateSelectionList()
     mSteadyStateSelection.resize(floatingSpecies.Count());
     for (int i = 0; i < floatingSpecies.Count(); i++)
     {
-        TSelectionRecord aRec;
-        aRec.selectionType = TSelectionType::clFloatingSpecies;
+        SelectionRecord aRec;
+        aRec.selectionType = SelectionType::clFloatingSpecies;
         aRec.p1 = floatingSpecies[i];
         aRec.index = i;
         mSteadyStateSelection[i] = aRec;
@@ -2129,56 +2199,56 @@ StringList RoadRunner::getSteadyStateSelectionList()
     StringList result;
     for(int i = 0; i < mSteadyStateSelection.size(); i++)
     {
-        TSelectionRecord record = mSteadyStateSelection[i];
+        SelectionRecord record = mSteadyStateSelection[i];
         switch (record.selectionType)
         {
-            case TSelectionType::clTime:
-                result.Add("time");
+            case SelectionType::clTime:
+                result.add("time");
             break;
-            case TSelectionType::clBoundaryAmount:
-                result.Add(Format("[{0}]", oBoundary[record.index]));
+            case SelectionType::clBoundaryAmount:
+                result.add(format("[{0}]", oBoundary[record.index]));
             break;
-            case TSelectionType::clBoundarySpecies:
-                result.Add(oBoundary[record.index]);
+            case SelectionType::clBoundarySpecies:
+                result.add(oBoundary[record.index]);
             break;
-            case TSelectionType::clFloatingAmount:
-                result.Add("[" + (string)oFloating[record.index] + "]");
+            case SelectionType::clFloatingAmount:
+                result.add("[" + (string)oFloating[record.index] + "]");
             break;
-            case TSelectionType::clFloatingSpecies:
-                result.Add(oFloating[record.index]);
+            case SelectionType::clFloatingSpecies:
+                result.add(oFloating[record.index]);
             break;
-            case TSelectionType::clVolume:
-                result.Add(oVolumes[record.index]);
+            case SelectionType::clVolume:
+                result.add(oVolumes[record.index]);
             break;
-            case TSelectionType::clFlux:
-                result.Add(oFluxes[record.index]);
+            case SelectionType::clFlux:
+                result.add(oFluxes[record.index]);
             break;
-            case TSelectionType::clRateOfChange:
-                result.Add(oRates[record.index]);
+            case SelectionType::clRateOfChange:
+                result.add(oRates[record.index]);
             break;
-            case TSelectionType::clParameter:
-                result.Add(oParameters[record.index]);
+            case SelectionType::clParameter:
+                result.add(oParameters[record.index]);
             break;
-            case TSelectionType::clEigenValue:
-                result.Add("eigen_" + record.p1);
+            case SelectionType::clEigenValue:
+                result.add("eigen_" + record.p1);
             break;
-            case TSelectionType::clElasticity:
-                result.Add("EE:" + record.p1 + "," + record.p2);
+            case SelectionType::clElasticity:
+                result.add("EE:" + record.p1 + "," + record.p2);
             break;
-            case TSelectionType::clUnscaledElasticity:
-                result.Add("uEE:" + record.p1 + "," + record.p2);
+            case SelectionType::clUnscaledElasticity:
+                result.add("uEE:" + record.p1 + "," + record.p2);
             break;
-            case TSelectionType::clUnknown:
-                result.Add(record.p1);
+            case SelectionType::clUnknown:
+                result.add(record.p1);
                 break;
         }
     }
     return result ;
 }
 
-vector<TSelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& newSelectionList)
+vector<SelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& newSelectionList)
 {
-    vector<TSelectionRecord> steadyStateSelection;
+    vector<SelectionRecord> steadyStateSelection;
     steadyStateSelection.resize(newSelectionList.Count());
     StringList fs = mModel->getFloatingSpeciesConcentrationNames();
     StringList bs = mModel->getBoundarySpeciesNames();
@@ -2195,7 +2265,7 @@ vector<TSelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& n
             if ((string)newSelectionList[i] == (string)fs[j])
             {
                 steadyStateSelection[i].index = j;
-                steadyStateSelection[i].selectionType = TSelectionType::clFloatingSpecies;
+                steadyStateSelection[i].selectionType = SelectionType::clFloatingSpecies;
                 set = true;
                 break;
             }
@@ -2203,7 +2273,7 @@ vector<TSelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& n
             if ((string)newSelectionList[i] == "[" + (string)fs[j] + "]")
             {
                 steadyStateSelection[i].index = j;
-                steadyStateSelection[i].selectionType = TSelectionType::clFloatingAmount;
+                steadyStateSelection[i].selectionType = SelectionType::clFloatingAmount;
                 set = true;
                 break;
             }
@@ -2212,7 +2282,7 @@ vector<TSelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& n
             if ((string)newSelectionList[i] == (string)fs[j] + "'")
             {
                 steadyStateSelection[i].index = j;
-                steadyStateSelection[i].selectionType = TSelectionType::clRateOfChange;
+                steadyStateSelection[i].selectionType = SelectionType::clRateOfChange;
                 set = true;
                 break;
             }
@@ -2229,14 +2299,14 @@ vector<TSelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& n
             if ((string)newSelectionList[i] == (string)bs[j])
             {
                 steadyStateSelection[i].index = j;
-                steadyStateSelection[i].selectionType = TSelectionType::clBoundarySpecies;
+                steadyStateSelection[i].selectionType = SelectionType::clBoundarySpecies;
                 set = true;
                 break;
             }
             if ((string)newSelectionList[i] == "[" + (string)bs[j] + "]")
             {
                 steadyStateSelection[i].index = j;
-                steadyStateSelection[i].selectionType = TSelectionType::clBoundaryAmount;
+                steadyStateSelection[i].selectionType = SelectionType::clBoundaryAmount;
                 set = true;
                 break;
             }
@@ -2249,7 +2319,7 @@ vector<TSelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& n
 
         if ((string)newSelectionList[i] == "time")
         {
-            steadyStateSelection[i].selectionType = TSelectionType::clTime;
+            steadyStateSelection[i].selectionType = SelectionType::clTime;
             set = true;
         }
 
@@ -2259,7 +2329,7 @@ vector<TSelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& n
             if ((string)newSelectionList[i] == (string)rs[j])
             {
                 steadyStateSelection[i].index = j;
-                steadyStateSelection[i].selectionType = TSelectionType::clFlux;
+                steadyStateSelection[i].selectionType = SelectionType::clFlux;
                 set = true;
                 break;
             }
@@ -2271,7 +2341,7 @@ vector<TSelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& n
             if ((string)newSelectionList[i] == (string)vol[j])
             {
                 steadyStateSelection[i].index = j;
-                steadyStateSelection[i].selectionType = TSelectionType::clVolume;
+                steadyStateSelection[i].selectionType = SelectionType::clVolume;
                 set = true;
                 break;
             }
@@ -2283,7 +2353,7 @@ vector<TSelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& n
             if ((string)newSelectionList[i] == (string)gp[j])
             {
                 steadyStateSelection[i].index = j;
-                steadyStateSelection[i].selectionType = TSelectionType::clParameter;
+                steadyStateSelection[i].selectionType = SelectionType::clParameter;
                 set = true;
                 break;
             }
@@ -2295,7 +2365,7 @@ vector<TSelectionRecord> RoadRunner::getSteadyStateSelection(const StringList& n
         }
 
         // it is another symbol
-        steadyStateSelection[i].selectionType = TSelectionType::clUnknown;
+        steadyStateSelection[i].selectionType = SelectionType::clUnknown;
         steadyStateSelection[i].p1 = (string)newSelectionList[i];
     }
     return steadyStateSelection;
@@ -2309,7 +2379,7 @@ void RoadRunner::setSteadyStateSelectionList(const StringList& newSelectionList)
         throw CoreException(gEmptyModelMessage);
     }
 
-    vector<TSelectionRecord> ssSelection = getSteadyStateSelection(newSelectionList);
+    vector<SelectionRecord> ssSelection = getSteadyStateSelection(newSelectionList);
     mSteadyStateSelection = ssSelection;
 }
 
@@ -2327,7 +2397,7 @@ vector<double> RoadRunner::computeSteadyStateValues()
     return computeSteadyStateValues(mSteadyStateSelection, true);
 }
 
-vector<double> RoadRunner::computeSteadyStateValues(const vector<TSelectionRecord>& selection, const bool& computeSteadyState)
+vector<double> RoadRunner::computeSteadyStateValues(const vector<SelectionRecord>& selection, const bool& computeSteadyState)
 {
     if (computeSteadyState)
     {
@@ -2343,14 +2413,14 @@ vector<double> RoadRunner::computeSteadyStateValues(const vector<TSelectionRecor
 
 }
 
-double RoadRunner::computeSteadyStateValue(const TSelectionRecord& record)
+double RoadRunner::computeSteadyStateValue(const SelectionRecord& record)
 {
     if (!mModel)
     {
         throw CoreException(gEmptyModelMessage);
     }
 
-    if (record.selectionType == TSelectionType::clUnknown)
+    if (record.selectionType == SelectionType::clUnknown)
     {
         return computeSteadyStateValue(record.p1);
     }
@@ -2421,7 +2491,7 @@ double RoadRunner::computeSteadyStateValue(const string& sId)
                 }
                 return gDoubleNaN;
             }
-            throw CoreException(Format("Found unknown floating species '{0}' in computeSteadyStateValue()", sSpecies));
+			throw CoreException(format("Found unknown floating species '{0}' in computeSteadyStateValue()", sSpecies));
         }
         try
         {
@@ -2429,7 +2499,7 @@ double RoadRunner::computeSteadyStateValue(const string& sId)
         }
         catch (Exception& )
         {
-            throw CoreException(Format("Found unknown symbol '{0}' in computeSteadyStateValue()", sId));
+            throw CoreException(format("Found unknown symbol '{0}' in computeSteadyStateValue()", sId));
         }
     }
 }
@@ -2505,7 +2575,7 @@ double RoadRunner::getLocalParameterByIndex    (const int& reactionId, const int
     }
     else
     {
-         throw CoreException(Format("Index in getLocalParameterByIndex out of range: [{0}]", index));
+     	throw CoreException(format("Index in getLocalParameterByIndex out of range: [{0}]", index));
     }
 }
 
@@ -2535,7 +2605,7 @@ double RoadRunner::getReactionRate(const int& index)
     }
     else
     {
-        throw CoreException(Format("Index in getReactionRate out of range: [{0}]", index));
+        throw CoreException(format("Index in getReactionRate out of range: [{0}]", index));
     }
 }
 
@@ -2553,7 +2623,7 @@ double RoadRunner::getRateOfChange(const int& index)
         return mModel->getModelData().dydt[index];
     }
 
-    throw CoreException(Format("Index in getRateOfChange out of range: [{0}]", index));
+    throw CoreException(format("Index in getRateOfChange out of range: [{0}]", index));
 }
 
 // Help("Returns the rates of changes given an array of new floating species concentrations")
@@ -2571,8 +2641,8 @@ vector<double> RoadRunner::getReactionRatesEx(const vector<double>& values)
         throw CoreException(gEmptyModelMessage);
     }
 
-    mModel->computeReactionRates(0.0, CreateVector(values));
-    return CreateVector(mModel->getModelData().rates, mModel->getModelData().ratesSize);
+    mModel->computeReactionRates(0.0, createVector(values));
+    return createVector(mModel->getModelData().rates, mModel->getModelData().ratesSize);
 }
 
 // Help("Get the number of compartments")
@@ -2599,7 +2669,7 @@ void RoadRunner::setCompartmentByIndex(const int& index, const double& value)
     }
     else
     {
-        throw CoreException(Format("Index in getCompartmentByIndex out of range: [{0}]", index));
+        throw CoreException(format("Index in getCompartmentByIndex out of range: [{0}]", index));
     }
 }
 
@@ -2616,7 +2686,7 @@ double RoadRunner::getCompartmentByIndex(const int& index)
         return mModel->getModelData().c[index];
     }
 
-    throw CoreException(Format("Index in getCompartmentByIndex out of range: [{0}]", index));
+    throw CoreException(format("Index in getCompartmentByIndex out of range: [{0}]", index));
 }
 
 // Help("Get the number of boundary species")
@@ -2643,7 +2713,7 @@ void RoadRunner::setBoundarySpeciesByIndex(const int& index, const double& value
     }
     else
     {
-        throw Exception(Format("Index in getBoundarySpeciesByIndex out of range: [{0}]", index));
+        throw Exception(format("Index in getBoundarySpeciesByIndex out of range: [{0}]", index));
     }
 }
 
@@ -2658,7 +2728,7 @@ double RoadRunner::getBoundarySpeciesByIndex(const int& index)
     {
         return mModel->getModelData().bc[index];
     }
-    throw Exception(Format("Index in getBoundarySpeciesByIndex out of range: [{0}]", index));
+    throw Exception(format("Index in getBoundarySpeciesByIndex out of range: [{0}]", index));
 }
 
 // Help("Returns an array of boundary species concentrations")
@@ -2670,7 +2740,7 @@ vector<double> RoadRunner::getBoundarySpeciesConcentrations()
     }
 
     mModel->convertToConcentrations();
-    return CreateVector(mModel->getModelData().bc, mModel->getModelData().bcSize);
+    return createVector(mModel->getModelData().bc, mModel->getModelData().bcSize);
 }
 
 // Help("Set the concentrations for all boundary species in the model")
@@ -2696,10 +2766,10 @@ StringList RoadRunner::getBoundarySpeciesAmountIds()
 {
     StringList result;// = new ArrayList();
     StringList list = getBoundarySpeciesIds();
-//    foreach (string s in getBoundarySpeciesIds()) oResult.Add("[" + s + "]");
+//    foreach (string s in getBoundarySpeciesIds()) oResult.add("[" + s + "]");
     for(int item = 0; item < list.Count(); item++)// (object item in floatingSpeciesNames)
     {
-        result.Add(Format("[{0}]", list[item]));
+        result.add(format("[{0}]", list[item]));
     }
 
     return result;
@@ -2730,7 +2800,7 @@ void RoadRunner::setFloatingSpeciesInitialConcentrationByIndex(const int& index,
     }
     else
     {
-        throw CoreException(Format("Index in setFloatingSpeciesInitialConcentrationByIndex out of range: [{0}]", index));
+        throw CoreException(format("Index in setFloatingSpeciesInitialConcentrationByIndex out of range: [{0}]", index));
     }
 }
 
@@ -2752,7 +2822,7 @@ void RoadRunner::setFloatingSpeciesByIndex(const int& index, const double& value
     }
     else
     {
-        throw CoreException(Format("Index in setFloatingSpeciesByIndex out of range: [{0}]", index));
+        throw CoreException(format("Index in setFloatingSpeciesByIndex out of range: [{0}]", index));
     }
 }
 
@@ -2768,7 +2838,7 @@ double RoadRunner::getFloatingSpeciesByIndex(const int& index)
     {
         return mModel->getConcentration(index);
     }
-    throw CoreException(Format("Index in getFloatingSpeciesByIndex out of range: [{0}]", index));
+    throw CoreException(format("Index in getFloatingSpeciesByIndex out of range: [{0}]", index));
 }
 
 // Help("Returns an array of floating species concentrations")
@@ -2780,7 +2850,7 @@ vector<double> RoadRunner::getFloatingSpeciesConcentrations()
     }
 
     mModel->convertToConcentrations();
-    return CreateVector(mModel->getModelData().y, mModel->getModelData().ySize);
+    return createVector(mModel->getModelData().y, mModel->getModelData().ySize);
 }
 
 // Help("returns an array of floating species initial conditions")
@@ -2791,7 +2861,7 @@ vector<double> RoadRunner::getFloatingSpeciesInitialConcentrations()
         throw CoreException(gEmptyModelMessage);
     }
     vector<double> initYs;
-    CopyCArrayToStdVector(mModel->getModelData().init_y, initYs, mModel->getModelData().init_ySize);
+    copyCArrayToStdVector(mModel->getModelData().init_y, initYs, mModel->getModelData().init_ySize);
     return initYs;
 }
 
@@ -2878,7 +2948,7 @@ StringList RoadRunner::getFloatingSpeciesInitialConditionIds()
     StringList result;// = new ArrayList();
     for(int item = 0; item < floatingSpeciesNames.Count(); item++)// (object item in floatingSpeciesNames)
     {
-        result.Add(Format("init({0})", floatingSpeciesNames[item]));
+        result.add(format("init({0})", floatingSpeciesNames[item]));
     }
     return result;
 }
@@ -2891,7 +2961,7 @@ StringList RoadRunner::getFloatingSpeciesAmountIds()
 
     for(int i = 0; i < list.Count(); i++)
     {
-        oResult.push_back(Format("[{0}]", list[i]));
+        oResult.add(format("[{0}]", list[i]));
     }
     return oResult;
 }
@@ -2929,7 +2999,7 @@ void RoadRunner::setGlobalParameterByIndex(const int& index, const double& value
     }
     else
     {
-        throw CoreException(Format("Index in getNumGlobalParameters out of range: [{0}]", index));
+        throw CoreException(format("Index in getNumGlobalParameters out of range: [{0}]", index));
     }
 }
 
@@ -2960,7 +3030,7 @@ double RoadRunner::getGlobalParameterByIndex(const int& index)
         return result[index];
     }
 
-    throw CoreException(Format("Index in getNumGlobalParameters out of range: [{0}]", index));
+    throw CoreException(format("Index in getNumGlobalParameters out of range: [{0}]", index));
 }
 
 // Help("Set the values for all global parameters in the model")
@@ -2998,14 +3068,14 @@ vector<double> RoadRunner::getGlobalParameterValues()
         result.resize(mModel->getModelData().gpSize + mModel->getModelData().ctSize);
 
         //mModel->getModelData().gp.CopyTo(result, 0);
-        CopyValues(result,mModel->getModelData().gp, mModel->getModelData().gpSize, 0);
+        copyValues(result,mModel->getModelData().gp, mModel->getModelData().gpSize, 0);
 
         //mModel->getModelData().ct.CopyTo(result, mModel->getModelData().gp.Length);
-        CopyValues(result, mModel->getModelData().ct, mModel->getModelData().ctSize, mModel->getModelData().gpSize);
+        copyValues(result, mModel->getModelData().ct, mModel->getModelData().ctSize, mModel->getModelData().gpSize);
         return result;
     }
 
-    return CreateVector(mModel->getModelData().gp, mModel->getModelData().gpSize);
+    return createVector(mModel->getModelData().gp, mModel->getModelData().gpSize);
 }
 
 // Help("Gets the list of parameter names")
@@ -3290,7 +3360,7 @@ DoubleMatrix RoadRunner::getScaledReorderedElasticityMatrix()
         mModel->convertToConcentrations();
         mModel->computeReactionRates(mModel->getTime(), mModel->getModelData().y);
         vector<double> rates;
-        if(!CopyCArrayToStdVector(mModel->getModelData().rates, rates, mModel->getModelData().ratesSize))
+        if(!copyCArrayToStdVector(mModel->getModelData().rates, rates, mModel->getModelData().ratesSize))
         {
             throw CoreException("Failed to copy model->rates");
         }
@@ -3586,7 +3656,7 @@ DoubleMatrix RoadRunner::getUnscaledFluxControlCoefficientMatrix()
 
             DoubleMatrix T1 = mult(uee, ucc);
 
-            // Add an identity matrix I to T1, that is add a 1 to every diagonal of T1
+			// Add an identity matrix I to T1, that is add a 1 to every diagonal of T1
             for (int i=0; i<T1.RSize(); i++)
                 T1[i][i] = T1[i][i] + 1;
             return T1;//Matrix.convertToDouble(T1);
@@ -3741,7 +3811,7 @@ vector<double> RoadRunner::getReactionRates()
     mModel->computeReactionRates(0.0, mModel->getModelData().y);
 
     vector<double> _rates;
-    CopyCArrayToStdVector(mModel->getModelData().rates, _rates, mModel->getModelData().ratesSize);
+    copyCArrayToStdVector(mModel->getModelData().rates, _rates, mModel->getModelData().ratesSize);
     return _rates;
 }
 
@@ -3755,7 +3825,7 @@ vector<double> RoadRunner::getRatesOfChange()
 
     mModel->computeAllRatesOfChange();
     vector<double> result;
-    CopyCArrayToStdVector(mModel->getModelData().dydt, result, mModel->getModelData().dydtSize);
+    copyCArrayToStdVector(mModel->getModelData().dydt, result, mModel->getModelData().dydtSize);
 
     return result;
 }
@@ -3775,10 +3845,50 @@ StringList RoadRunner::getReactionIds()
 // Start of Level 2 API Methods
 // ---------------------------------------------------------------------
 // Help("Get Simulator Capabilities")
-string RoadRunner::getCapabilities()
+string RoadRunner::getCapabilitiesAsXML()
 {
-    CapsSupport current = CapsSupport(this);
-    return current.AsXMLString();
+    return mCapabilities.asXML();
+}
+
+Capability* RoadRunner::getCapability(const string& cap_name)
+{
+	return mCapabilities.get(cap_name);
+}
+
+StringList RoadRunner::getListOfCapabilities()
+{
+    return mCapabilities.asStringList();
+}
+
+bool RoadRunner::addCapability(Capability& cap)
+{
+	mCapabilities.add(cap);
+	return true;
+}
+
+bool RoadRunner::addCapabilities(Capabilities& caps)
+{
+	for(int i = 0; i < caps.count(); i++)
+    {
+    	addCapability(*(caps[i]));
+    }
+    return true;
+}
+
+StringList RoadRunner::getListOfParameters(const string& cap)
+{
+	Capability *aCap = mCapabilities.get(cap);
+    if(!aCap)
+    {
+    	stringstream msg;
+    	msg<<"No such capability: "<<cap;
+		throw(CoreException(msg.str()));
+    }
+    Parameters* paras = aCap->getParameters();
+    if(paras)
+    {
+    	return paras->asStringList();
+    }
 }
 
 void RoadRunner::setTolerances(const double& aTol, const double& rTol)
@@ -3786,15 +3896,6 @@ void RoadRunner::setTolerances(const double& aTol, const double& rTol)
     if(mCVode)
     {
         mCVode->setTolerances(aTol, rTol);
-    }
-}
-
-void RoadRunner::setTolerances(const double& aTol, const double& rTol, const int& maxSteps)
-{
-    if(mCVode)
-    {
-        mCVode->setTolerances(aTol, rTol);
-        mCVode->mMaxNumSteps = maxSteps;
     }
 }
 
@@ -3888,13 +3989,13 @@ bool RoadRunner::setValue(const string& sId, const double& dValue)
 
     if (initialConditions.Contains(sId))
     {
-        int index = initialConditions.IndexOf(sId);
+        int index = initialConditions.indexOf(sId);
         mModel->getModelData().init_y[index] = dValue;
         reset();
         return true;
     }
 
-    Log(lError)<<Format("Given Id: '{0}' not found.", sId) + "Only species and global parameter values can be set";
+    Log(lError)<<format("Given Id: '{0}' not found.", sId) + "Only species and global parameter values can be set";
     return false;
 }
 
@@ -3944,7 +4045,7 @@ double RoadRunner::getValue(const string& sId)
     StringList initialConditions = getFloatingSpeciesInitialConditionIds();
     if (initialConditions.Contains(sId))
     {
-        int index = initialConditions.IndexOf(sId);
+        int index = initialConditions.indexOf(sId);
         return mModel->getModelData().init_y[index];
     }
 
@@ -3975,7 +4076,7 @@ double RoadRunner::getValue(const string& sId)
 
         //DoubleMatrix mat = getReducedJacobian();
         DoubleMatrix mat;
-        if (mComputeAndAssignConservationLaws)
+		if (mComputeAndAssignConservationLaws.getValue())
         {
            mat = getReducedJacobian();
         }
@@ -4753,7 +4854,7 @@ string RoadRunner::getlibSBMLVersion()
 //            if (values.Length < mModel->getNumCompartments)
 //                mModel->getModelData().c = values;
 //            else
-//                throw (new CoreException(String.Format("Size of vector out not in range in setCompartmentValues: [{0}]", values.Length)));
+//                throw (new CoreException(String.format("Size of vector out not in range in setCompartmentValues: [{0}]", values.Length)));
 //        }
 //
 
@@ -4766,25 +4867,29 @@ string RoadRunner::getlibSBMLVersion()
 //                (index >= 0) && (index < mModel->getNumLocalParameters(reactionId)))
 //                mModel->getModelData().lp[reactionId][index] = value;
 //            else
-//                throw CoreException(string.Format("Index in setLocalParameterByIndex out of range: [{0}]", index));
+//                throw CoreException(string.format("Index in setLocalParameterByIndex out of range: [{0}]", index));
 //        }
 //
 
 
 // Help("Returns the values selected with setTimeCourseSelectionList() for the current model time / timestep")
-//        double[] RoadRunner::getSelectedValues()
-//        {
-//            if (!mModel) throw CoreException(gEmptyModelMessage);
-//
-//            var result = new double[mSelectionList.Length];
-//
-//            for (int j = 0; j < mSelectionList.Length; j++)
-//            {
-//                result[j] = getNthSelectedOutput(j, mModel->getModelData().GetTime());
-//            }
-//            return result;
-//        }
-//
+vector<double> RoadRunner::getSelectedValues()
+{
+    if (!mModel)
+    {
+    	throw CoreException(gEmptyModelMessage);
+    }
+
+    vector<double> result;
+    result.resize(mSelectionList.size());
+
+    for (int i = 0; i < mSelectionList.size(); i++)
+    {
+    	result[i] = getNthSelectedOutput(i, mModel->getModelData().time);
+    }
+    return result;
+}
+
 
 // Help("When turned on, this method will cause rates, event assignments, rules and such to be multiplied " +
 //              "with the compartment volume, if species are defined as initialAmounts. By default this behavior is off.")
@@ -4794,7 +4899,7 @@ string RoadRunner::getlibSBMLVersion()
 //            _ReMultiplyCompartments = bValue;
 //        }
 //
-// Help("Performs a steady state parameter scan with the given parameters returning all elments from the mSelectionList: (Format: symnbol, startValue, endValue, stepSize)")
+// Help("Performs a steady state parameter scan with the given parameters returning all elments from the mSelectionList: (format: symnbol, startValue, endValue, stepSize)")
 //        double[][] RoadRunner::steadyStateParameterScan(string symbol, double startValue, double endValue, double stepSize)
 //        {
 //            var results = new List<double[]>();
@@ -4817,7 +4922,7 @@ string RoadRunner::getlibSBMLVersion()
 //                var currentRow = new List<double> {current};
 //                currentRow.AddRange(getSelectedValues());
 //
-//                results.Add(currentRow.ToArray());
+//                results.add(currentRow.ToArray());
 //                current += stepSize;
 //            }
 //            setValue(symbol, initialValue);
@@ -4836,7 +4941,7 @@ string RoadRunner::getlibSBMLVersion()
 //            if ((reactionId >= 0) && (reactionId < mModel->getNumReactions))
 //                mModel->getModelData().lp[reactionId] = values;
 //            else
-//                throw CoreException(String.Format("Index in setLocalParameterValues out of range: [{0}]", reactionId));
+//                throw CoreException(String.format("Index in setLocalParameterValues out of range: [{0}]", reactionId));
 //        }
 //
 // Help("Get the values for all global parameters in the model")
@@ -4847,7 +4952,7 @@ string RoadRunner::getlibSBMLVersion()
 //
 //            if ((reactionId >= 0) && (reactionId < mModel->getNumReactions))
 //                return mModel->getModelData().lp[reactionId];
-//            throw CoreException(String.Format("Index in getLocalParameterValues out of range: [{0}]", reactionId));
+//            throw CoreException(String.format("Index in getLocalParameterValues out of range: [{0}]", reactionId));
 //        }
 //
 // Help("Gets the list of parameter names")
@@ -4872,13 +4977,13 @@ string RoadRunner::getlibSBMLVersion()
 //            {
 //                var tuple = new ArrayList();
 //                ArrayList lpList = mModelGenerator->getLocalParameterList(i);
-//                tuple.Add(i);
+//                tuple.add(i);
 //                for (int j = 0; j < lpList.Count; j++)
 //                {
-//                    tuple.Add(lpList[j]);
-//                    tuple.Add(mModel->getModelData().lp[i][j]);
+//                    tuple.add(lpList[j]);
+//                    tuple.Add(mModel->mData.lp[i][j]);
 //                }
-//                tupleList.Add(tuple);
+//                tupleList.add(tuple);
 //            }
 //            return tupleList;
 //        }

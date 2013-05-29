@@ -24,10 +24,10 @@
     } \
 }
 
-using namespace std;
-
 namespace rr
 {
+using namespace std;
+using namespace libsbml;
 ModelGenerator::ModelGenerator()
 :
 mComputeAndAssignConsevationLaws(false),
@@ -130,7 +130,7 @@ string ModelGenerator::cleanEquation(const string& eqn)
     if (ast == NULL)
     {
         // we are in trouble!
-        if (EndsWith(equation, "* "))
+        if (endsWith(equation, "* "))
         {
               equation = equation.substr(0, equation.size() - 2);
         }
@@ -236,7 +236,7 @@ int ModelGenerator::readGlobalParameters()
         StringList parameter = oParameters[i];
 
         string name     = parameter[0];
-        double value     = ToDouble(parameter[1]);
+        double value     = toDouble(parameter[1]);
         Symbol aSymbol(name, value);
         Log(lDebug5)<<"Adding symbol"<<aSymbol<<" to global parameters";
 
@@ -275,12 +275,12 @@ void ModelGenerator::readLocalParameters(const int& numReactions,  vector<int>& 
 
 bool ModelGenerator::expressionContainsSymbol(ASTNode *ast, const string& symbol)
 {
-    if (ast == NULL || IsNullOrEmpty(symbol))
+    if (ast == NULL || isNullOrEmpty(symbol))
     {
         return false;
     }
 
-    if (ast->getType() == libsbml::AST_NAME && Trim(ast->getName()) == Trim(symbol))
+    if (ast->getType() == libsbml::AST_NAME && trim(ast->getName()) == trim(symbol))
     {
         return true;
     }
@@ -298,7 +298,7 @@ bool ModelGenerator::expressionContainsSymbol(ASTNode *ast, const string& symbol
 
 bool ModelGenerator::expressionContainsSymbol(const string& expression,const string& symbol)
 {
-      if (IsNullOrEmpty(expression) || IsNullOrEmpty(symbol))
+      if (isNullOrEmpty(expression) || isNullOrEmpty(symbol))
       {
           return false;
       }
@@ -323,7 +323,7 @@ Symbol* ModelGenerator::getSpecies(const string& id)
 
 string ModelGenerator::writeDouble(const double& value, const string& format)
 {
-    return ToString(value, format);
+    return toString(value, format);
 }
 
 int ModelGenerator::readCompartments()
@@ -336,7 +336,7 @@ int ModelGenerator::readCompartments()
         string sCompartmentId = mNOM->getNthCompartmentId(i);
         double value = mNOM->getValue(sCompartmentId);
 
-        if(IsNaN(value))
+        if(isNaN(value))
         {
             value = 1;
         }
@@ -376,7 +376,7 @@ int ModelGenerator::readModifiableSpeciesReferences()
                 continue;
             }
             value = reference.getStoichiometry();
-            if (IsNaN(value))
+            if (isNaN(value))
                 value = 1;
 
             if (reference.isSetId())
@@ -388,12 +388,12 @@ int ModelGenerator::readModifiableSpeciesReferences()
         {
             SpeciesReference &reference = *(reaction.getProduct(j));
             id = reference.getId();
-            if (IsNullOrEmpty(id))
+            if (isNullOrEmpty(id))
             {
                 continue;
             }
             value = reference.getStoichiometry();
-            if (IsNaN(value))
+            if (isNaN(value))
             {
                 value = 1;
             }

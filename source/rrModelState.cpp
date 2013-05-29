@@ -18,17 +18,17 @@ void ModelState::InitializeFromModel(ExecutableModel& model)
 	ModelData &modelData = model.getModelData();
     model.convertToConcentrations();
 //    CopyCArrayToStdVector(model.y,                        mFloatingSpeciesConcentrations,       *model.ySize);
-    CopyCArrayToStdVector(modelData.bc,                       mBoundarySpeciesConcentrations,       modelData.bcSize);
-    CopyCArrayToStdVector(modelData.c,                        mCompartmentVolumes,                  modelData.cSize);
-    CopyCArrayToStdVector(modelData.gp,                       mGlobalParameters,                    modelData.gpSize);
-    CopyCArrayToStdVector(modelData.ct,                       mConservedTotals,                     modelData.ctSize);
-    CopyCArrayToStdVector(modelData.dydt,                     mDyDt,                                modelData.dydtSize);
-    CopyCArrayToStdVector(modelData.rates,                    mRates,                               modelData.ratesSize);
-    CopyCArrayToStdVector(modelData.rateRules,                mRateRules,                           modelData.rateRulesSize);
-    CopyCArrayToStdVector(modelData.sr,                       mModifiableSpeciesReferences,         modelData.srSize);
-    CopyCArrayToStdVector(modelData.eventStatusArray,         mEventStatusArray,                    modelData.eventStatusArraySize);
-    CopyCArrayToStdVector(modelData.eventTests,               mEventTests,                          modelData.eventTestsSize);
-    CopyCArrayToStdVector(modelData.previousEventStatusArray, mPreviousEventStatusArray,            modelData.previousEventStatusArraySize);
+    copyCArrayToStdVector(modelData.bc,                       mBoundarySpeciesConcentrations,       modelData.bcSize);
+    copyCArrayToStdVector(modelData.c,                        mCompartmentVolumes,                  modelData.cSize);
+    copyCArrayToStdVector(modelData.gp,                       mGlobalParameters,                    modelData.gpSize);
+    copyCArrayToStdVector(modelData.ct,                       mConservedTotals,                     modelData.ctSize);
+    copyCArrayToStdVector(modelData.dydt,                     mDyDt,                                modelData.dydtSize);
+    copyCArrayToStdVector(modelData.rates,                    mRates,                               modelData.ratesSize);
+    copyCArrayToStdVector(modelData.rateRules,                mRateRules,                           modelData.rateRulesSize);
+    copyCArrayToStdVector(modelData.sr,                       mModifiableSpeciesReferences,         modelData.srSize);
+    copyCArrayToStdVector(modelData.eventStatusArray,         mEventStatusArray,                    modelData.eventStatusArraySize);
+    copyCArrayToStdVector(modelData.eventTests,               mEventTests,                          modelData.eventTestsSize);
+    copyCArrayToStdVector(modelData.previousEventStatusArray, mPreviousEventStatusArray,            modelData.previousEventStatusArraySize);
     mTime = modelData.time;
 }
 
@@ -36,17 +36,17 @@ void ModelState::AssignToModel(ExecutableModel& model)
 {
 	ModelData &modelData = model.getModelData();
 //    CopyStdVectorToCArray(mFloatingSpeciesConcentrations,   model.y,                        *model.ySize                        );
-    CopyStdVectorToCArray(mBoundarySpeciesConcentrations,   modelData.bc,                       modelData.bcSize                       );
-    CopyStdVectorToCArray(mCompartmentVolumes,              modelData.c,                        modelData.cSize                        );
-    CopyStdVectorToCArray(mGlobalParameters,                modelData.gp,                       modelData.gpSize                       );
-    CopyStdVectorToCArray(mConservedTotals,                 modelData.ct,                       modelData.ctSize                       );
-    CopyStdVectorToCArray(mDyDt,                            modelData.dydt,                     modelData.dydtSize                     );
-    CopyStdVectorToCArray(mRates,                           modelData.rates,                    modelData.ratesSize                    );
-    CopyStdVectorToCArray(mRateRules,                       modelData.rateRules,                modelData.rateRulesSize                );
-    CopyStdVectorToCArray(mEventTests,                      modelData.eventTests,               modelData.eventTestsSize               );
-    CopyStdVectorToCArray(mEventStatusArray,                modelData.eventStatusArray,         modelData.eventStatusArraySize         );
-    CopyStdVectorToCArray(mPreviousEventStatusArray,        modelData.previousEventStatusArray, modelData.previousEventStatusArraySize );
-    CopyStdVectorToCArray(mModifiableSpeciesReferences,     modelData.sr,                       modelData.srSize                        );
+    copyStdVectorToCArray(mBoundarySpeciesConcentrations,   modelData.bc,                       modelData.bcSize                       );
+    copyStdVectorToCArray(mCompartmentVolumes,              modelData.c,                        modelData.cSize                        );
+    copyStdVectorToCArray(mGlobalParameters,                modelData.gp,                       modelData.gpSize                       );
+    copyStdVectorToCArray(mConservedTotals,                 modelData.ct,                       modelData.ctSize                       );
+    copyStdVectorToCArray(mDyDt,                            modelData.dydt,                     modelData.dydtSize                     );
+    copyStdVectorToCArray(mRates,                           modelData.rates,                    modelData.ratesSize                    );
+    copyStdVectorToCArray(mRateRules,                       modelData.rateRules,                modelData.rateRulesSize                );
+    copyStdVectorToCArray(mEventTests,                      modelData.eventTests,               modelData.eventTestsSize               );
+    copyStdVectorToCArray(mEventStatusArray,                modelData.eventStatusArray,         modelData.eventStatusArraySize         );
+    copyStdVectorToCArray(mPreviousEventStatusArray,        modelData.previousEventStatusArray, modelData.previousEventStatusArraySize );
+    copyStdVectorToCArray(mModifiableSpeciesReferences,     modelData.sr,                       modelData.srSize                        );
     model.convertToAmounts();
     model.setTime(mTime);
 }

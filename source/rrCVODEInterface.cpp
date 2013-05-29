@@ -26,7 +26,7 @@ namespace rr
 
 int InternalFunctionCall(realtype t, N_Vector cv_y, N_Vector cv_ydot, void *f_data);
 int InternalRootCall (realtype t, N_Vector y, realtype *gout, void *g_data);
-
+
 void ModelFcn(int n, 	double time, double* y, double* ydot, void* userData);
 void EventFcn(			double time, double* y, double* gdot, void* userData);
 
@@ -34,8 +34,10 @@ void EventFcn(			double time, double* y, double* gdot, void* userData);
 RR_DECLSPEC void        SetVector (N_Vector v, int Index, double Value);
 RR_DECLSPEC double      GetVector (N_Vector v, int Index);
 
-CvodeInterface::CvodeInterface(RoadRunner* rr, ExecutableModel *aModel, const double& _absTol, const double& _relTol)
-:
+
+CvodeInterface::CvodeInterface(RoadRunner* rr, ExecutableModel *aModel, const double& _absTol, const double& _relTol)
+
+:
 mDefaultReltol(_relTol),
 mDefaultAbsTol(_absTol),
 mDefaultMaxNumSteps(10000),
@@ -57,14 +59,28 @@ mMinStep(0.0),
 mMaxStep(0.0),
 mMaxNumSteps(mDefaultMaxNumSteps),
 mRelTol(_relTol),
-mAbsTol(_absTol)
+mAbsTol(_absTol),
+mCVODECapability("Integration", "CVODE", "CVODE Integrator")
 {
+    //Setup capability
+    mCVODECapability.addParameter(new Parameter<int>(    "BDFOrder", 	 mMaxBDFOrder,     "Maximum order for BDF Method"));
+    mCVODECapability.addParameter(new Parameter<int>(    "AdamsOrder",   mMaxAdamsOrder,   "Maximum order for Adams Method"));
+    mCVODECapability.addParameter(new Parameter<double>( "rtol",         mRelTol,          "Relative Tolerance"));
+    mCVODECapability.addParameter(new Parameter<double>( "atol",         mAbsTol,          "Absolute Tolerance"));
+    mCVODECapability.addParameter(new Parameter<int>(    "maxsteps",     mMaxNumSteps,     "Maximum number of internal stepsc"));
+    mCVODECapability.addParameter(new Parameter<double>( "initstep",     mInitStep,        "the initial step size"));
+    mCVODECapability.addParameter(new Parameter<double>( "minstep",      mMinStep,         "specifies a lower bound on the magnitude of the step size."));
+    mCVODECapability.addParameter(new Parameter<double>( "maxstep",      mMaxStep,         "specifies an upper bound on the	magnitude of the step size."));
+
 	if(rr)
 	{
 		mTempPathstring = rr->getTempFolder();
 	}
 
-    initializeCVODEInterface(aModel);
+    if(aModel)
+    {
+    	initializeCVODEInterface(aModel);
+    }
 }
 
 CvodeInterface::~CvodeInterface()
@@ -97,9 +113,13 @@ ExecutableModel*	CvodeInterface::getModel()
 	return mTheModel;
 }
 
+Capability&	CvodeInterface::getCapability()
+{
+	return mCVODECapability;
+}
+
 int CvodeInterface::allocateCvodeMem ()
 {
-
     if (mCVODE_Memory == NULL)
     {
         return CV_SUCCESS;
@@ -112,7 +132,6 @@ int CvodeInterface::allocateCvodeMem ()
     }
 
     int result =  CVodeInit(mCVODE_Memory, InternalFunctionCall, t0, mAmounts);
-
 
     if (result != CV_SUCCESS)
     {
@@ -240,7 +259,7 @@ double CvodeInterface::oneStep(const double& _timeStart, const double& hstep)
             }
             catch (const Exception& e)
             {
-                Log(lWarning)<<"Constraint Violated at time = " + ToString(timeEnd)<<": " + e.Message();
+                Log(lWarning)<<"Constraint Violated at time = " + toString(timeEnd)<<": " + e.Message();
 
             }
 
@@ -292,7 +311,7 @@ void ModelFcn(int n, double time, double* y, double* ydot, void* userData)
 
     model->evalModel(time, dCVodeArgument);
 
-    CopyCArrayToStdVector(model->getModelData().rateRules,    dCVodeArgument, (model->getModelData().rateRulesSize));
+    copyCArrayToStdVector(model->getModelData().rateRules,    dCVodeArgument, (model->getModelData().rateRulesSize));
 
     for(u_int i = 0 ; i < (model->getModelData().dydtSize); i++)
     {
@@ -543,7 +562,7 @@ void CvodeInterface::handleRootsFound(double &timeEnd, const double& tout)
     // Create some space for the CVGetRootInfo call
     int* _rootsFound = new int[mTheModel->getNumEvents()];
     CVodeGetRootInfo(mCVODE_Memory, _rootsFound);
-    CopyCArrayToStdVector(_rootsFound, rootsFound, mTheModel->getNumEvents());
+    copyCArrayToStdVector(_rootsFound, rootsFound, mTheModel->getNumEvents());
     delete [] _rootsFound;
     handleRootsForTime(timeEnd, rootsFound);
 }
@@ -906,8 +925,19 @@ void CvodeInterface::handleCVODEError(const int& errCode)
 {
     if (errCode < 0)
     {
+         string tempFolder;
+
+		if(mRR)
+        {
+        	tempFolder = mRR->getTempFolder();
+        }
+        else
+        {
+        	tempFolder = ".";
+        }
+
         string msg = "";
-        string errorFile = mTempPathstring + mLogFile + ToString(mErrorFileCounter) + ".txt";
+        string errorFile = joinPath(tempFolder, mLogFile) + toString(mErrorFileCounter) + ".txt";
 
         // and open a new file handle
         mErrorFileCounter++;

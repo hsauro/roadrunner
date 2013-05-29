@@ -15,7 +15,10 @@ ${THIRD_PARTY_INSTALL_FOLDER}/include/cvode
 
 set(rrSources 
 rrParameter
+rrParameters
+rrSteadyStateSolver
 rrCapability
+rrCapabilities
 rrConstants
 rrArrayList2
 rrArrayListItem
@@ -29,7 +32,6 @@ rrLogContainer
 rrLoggerUtils
 rrLogLevel
 rrLogOutput
-rrMisc
 rrCompiledExecutableModel
 rrExecutableModel
 rrModelState
@@ -42,7 +44,6 @@ rrRule
 rrSBMLModelSimulation
 rrSBMLSymbol
 rrSBMLSymbolDependencies
-rrSimulationData
 rrSimulationSettings
 rrStreamWriter
 rrStringBuilder
@@ -66,7 +67,6 @@ rrToken
 rrCVODEInterface
 rrNLEQInterface
 rrDLLEntry
-rrCapsSupport
 rrStopWatch
 rrEvent
 rrTestSuiteModelSimulation
@@ -86,14 +86,18 @@ rrBaseParameter
 rrRoadRunnerList
 rrThreadPool
 rrLoadModel
+rrLoadModelFromFile
 rrRoadRunnerThread
 rrLoadModelThread
 rrSimulate
 rrSimulateThread
+rrRoadRunnerData
+rrSelectionRecord
+rrMinimizationData
 rrModelGeneratorFactory
 )
 
-#Build both static and shared version
+if(RR_BUILD_SHARED_CORE)
 #Link with static libs
 add_library(${target} SHARED ${rrSources})
 
@@ -137,6 +141,16 @@ target_link_libraries (${target}
  libsbml
 )
 endif()
+if(${INSTALL_CXX_API})
+
+install(TARGETS ${target} 
+        RUNTIME DESTINATION bin COMPONENT rr_core
+        LIBRARY DESTINATION lib COMPONENT rr_core
+        ARCHIVE DESTINATION lib COMPONENT rr_core
+)
+endif()
+
+endif()
 
 add_library(${target}-static STATIC ${rrSources})
 
@@ -154,6 +168,8 @@ POCO_NO_AUTOMATIC_LIBS
 ) 
 
 #libraries to link with static lib
+#======== We need to split up this one to satisfy linking in both windows and posix.
+#=== windows need libsbml-static and libf2c and posix uses sbml-static and f2c
 target_link_libraries (${target}-static 
    libsbml-static${staticLibExt}
    sundials_cvode
@@ -186,12 +202,6 @@ endif()
 
 #--- INSTALL STUFF
 if(${INSTALL_CXX_API})
-
-install(TARGETS ${target} 
-        RUNTIME DESTINATION bin COMPONENT rr_core
-        LIBRARY DESTINATION lib COMPONENT rr_core
-        ARCHIVE DESTINATION lib COMPONENT rr_core
-)
 
 #if(INSTALL_STATIC_LIB)
 install(TARGETS ${target}-static 
