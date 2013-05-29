@@ -1,0 +1,127 @@
+\documentclass[12pt, letter, oneside]{book}
+
+\usepackage{fancyhdr, ifpdf}
+\pagestyle{fancyplain}
+
+%% some redefination of the headers and footers
+\renewcommand{\chaptermark}[1]%
+                 {\markboth{#1}{}}
+\renewcommand{\sectionmark}[1]%
+                 {\markright{\thesection\ #1}}
+\lhead[\fancyplain{}{\thepage}]%
+      {\fancyplain{}{\rightmark}}
+\rhead[\fancyplain{}{\leftmark}]%
+      {\fancyplain{}{\thepage}}
+\cfoot{}
+\sloppy
+
+\ifpdf
+   \usepackage[pdftex]{graphicx}
+   \pdfinfo {
+      /Title (RoadRunner Introduction)
+      /Subject (Documentation)
+      /Author (Totte Karlsosn)
+      /Keywords Synthetic Biology
+   }
+\else
+   \usepackage{graphicx}
+\fi
+
+
+
+%% start the show...
+\begin{document}
+
+\author{Totte Karlsson and Herbert Sauro
+\\\\University of Washington, Seattle Washington USA}
+\title{Introduction to Simulations of Chemical and Biological Systems 
+\\ RoadRunner Version 1.0
+}
+\maketitle
+
+\pagenumbering{roman}
+
+\setcounter{page}{1}
+\tableofcontents
+%\listoffigures
+%\listoftables
+\pagenumbering{arabic}
+\include{intro}
+
+\section{The Software}
+\subsection{Core Architecture}
+\subsubsection{Block diagrams}
+\subsubsection{Building blocks}
+\subsubsection{Data flow}
+\subsubsection{Functional Components}
+\subsubsection{Base}
+\subsubsection{Threading}
+\subsubsection{plugins}
+\subsubsection{Diagrams}
+Model Generation
+Model Creation
+Model Simulation
+\section{Wrappers}
+\subsection{Introduction}
+\subsection{Handles}
+\subsection{Consistent api}
+\subsection{C and Python}
+\subsection{Handles}
+\subsection{RRHandle}
+\subsection{Data Handle}
+\subsection{Examples}
+\subsection{Plugin Framework }
+\section{Introduction}
+\subsection{Examples}
+\subsection{Plugin API}
+\subsubsection{Create your own plugin}
+\subsubsection{C++}
+\subsubsection{C}
+\subsubsection{Python}
+\subsubsection{Delphi}
+\subsection{Examples}
+\subsection{Intro}
+\subsubsection{Using Core functionalities}
+\subsubsection{Plugins}
+\subsubsection{Distributed plugins }
+\subsubsection{Minimization Plugins}
+\subsubsection{Levenberg-Marquardt}
+\section{Appendix}
+\subsection{Getting the source}
+\subsection{Building}
+\subsection{3rd party}
+\subsection{core}
+\subsection{plugins}
+\subsection{wrappers}
+\subsubsection{C}
+\subsubsection{Python}
+\subsection{Testing}
+\subsection{Intro}
+\subsubsection{C api}
+\subsubsection{Python}
+\subsection{Other sources of information}
+\subsubsection{Google Code}
+\subsubsection{FlySpray}
+\subsubsection{sysbio home page}
+\subsubsection{My blog}
+\subsubsection{Summary}
+\subsubsection{Examples}
+
+\begin{appendix}
+\appendix
+\include{appx}
+\end{appendix}
+
+\addcontentsline{toc}{chapter}{Bibliography}
+
+\bibliographystyle{plain}
+\thispagestyle{empty}
+\bibliography{demo}
+
+\end{document}
+
+
+
+
+
+
