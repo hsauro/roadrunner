@@ -21,6 +21,7 @@ string ErrorForStatus(const int& error);
 ExecutableModel* NLEQInterface::model = NULL;     // Model generated from the SBML
 long		NLEQInterface::n	 = 0;
 
+//Static functions... :(
 long  NLEQInterface::getN()
 {
 	return NLEQInterface::n;
@@ -33,14 +34,29 @@ ExecutableModel* NLEQInterface::getModel()
 
 NLEQInterface::NLEQInterface(ExecutableModel *_model)
 :
+SteadyStateSolver("NLEQ2", "NLEQ2 Steady State Solver"),
 nOpts(50),
 defaultMaxInterations(100),
 maxIterations(defaultMaxInterations),
 defaultTolerance(1.e-4),
-relativeTolerance(defaultTolerance),
-ierr(0)
+relativeTolerance(defaultTolerance)
 {
-	model = _model;
+    model = _model;
+
+	mCapability.addParameter(new Parameter<int>("MaxIterations", maxIterations, "Maximum number of newton iterations"));
+    mCapability.addParameter(new Parameter<double>("relativeTolerance", relativeTolerance, "Relative precision of solution components"));
+
+	if(model)
+    {
+    	setup();
+    }
+}
+
+NLEQInterface::~NLEQInterface()
+{}
+
+void NLEQInterface::setup()
+{
     n = model->getNumIndependentVariables();
 
     // Allocate space, see NLEQ docs for details
@@ -79,6 +95,11 @@ ierr(0)
     }
 
     RWK[22 - 1] = 1E-16; // Minimal allowed damping factor
+}
+
+Capability&	NLEQInterface::getCapability()
+{
+	return mCapability;
 }
 
 bool NLEQInterface::isAvailable()
@@ -140,10 +161,18 @@ double NLEQInterface::solve(const vector<double>& yin)
 
     //NLEQ1(ref n, fcn, null, model->amounts, XScal, ref tmpTol, iopt, ref ierr, ref LIWK, IWK, ref LWRK, RWK);
 
-    NLEQ1( &n, 				&ModelFunction, NULL,
-           model->getModelData().amounts,	XScal,        	&tmpTol,
-           iopt,           	&ierr,          &LIWK,
-           IWK,           	&LWRK,          RWK);
+    NLEQ1( 	&n,
+    		&ModelFunction,
+            NULL,
+           	model->getModelData().amounts,
+            XScal,
+            &tmpTol,
+           	iopt,
+            &ierr,
+            &LIWK,
+           	IWK,
+            &LWRK,
+            RWK);
 
     if (ierr == 2) // retry
     {
@@ -353,7 +382,7 @@ string ErrorForStatus(const int& error)
             case 81:    return ("Error signalled by linear solver routine N1SOLV, in NLEQ");
             case 82:    return ("Possible negative concentrations in solution (NLEQ)");
             case 83:    return ("Error signalled by user routine JAC in NLEQ");
-            default:    return (Format("Unknown error in NLEQ, errCode = {0}", error));
+            default:    return (format("Unknown error in NLEQ, errCode = {0}", error));
         }   
 }
 
@@ -364,7 +393,7 @@ double NLEQInterface::computeSumsOfSquares()
 //    dTemp.resize(model->getModelData().amounts.size() + model->getModelData().rateRules.size());
 
     //    dTemp = model->getModelData().rateRules;//model->getModelData().rateRules.CopyTo(dTemp, 0);
-    CopyCArrayToStdVector(model->getModelData().rateRules,   dTemp, (model->getModelData().rateRulesSize));//model->getModelData().rateRules.CopyTo(dTemp, 0);
+    copyCArrayToStdVector(model->getModelData().rateRules,   dTemp, (model->getModelData().rateRulesSize));//model->mData.rateRules.CopyTo(dTemp, 0);
     //model->getModelData().amounts.CopyTo(dTemp, model->getModelData().rateRules.Length);
 //    for(int i = 0; i < model->getModelData().amounts.size(); i++)
     for(int i = 0; i < model->getNumIndependentVariables(); i++)

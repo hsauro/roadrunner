@@ -15,11 +15,12 @@
 #include "rrCompiledExecutableModel.h"
 //---------------------------------------------------------------------------
 
-using namespace std;
-using namespace ls;
-
 namespace rr
 {
+
+using namespace std;
+using namespace ls;
+using namespace libsbml;
 
 Mutex               CModelGenerator::mCompileMutex;
 
@@ -200,17 +201,17 @@ void CModelGenerator::writeClassHeader(CodeBuilder& ignore)
     mHeader<<"#include \"rrCExporter.h\"\t             //Export Stuff."<<endl;
 
 
-    mHeader<<Append("//************************************************************************** " + NL());
+    mHeader<<append("//************************************************************************** " + NL());
     mHeader<<"//Number of floating species: "<<mFloatingSpeciesConcentrationList.size()<<endl;
     for (int i = 0; i < mFloatingSpeciesConcentrationList.size(); i++)
     {
         mHeader<<"\t// y["<<i<<"] = "<<mFloatingSpeciesConcentrationList[i].name<<endl;//{2}", NL());
     }
 
-    mHeader<<Append("//************************************************************************** " + NL());
-    mHeader<<Append(NL());
+    mHeader<<append("//************************************************************************** " + NL());
+    mHeader<<append(NL());
 //    mHeader<<Format("D_S struct TModel{0}", NL());
-//    mHeader<<Append("{" + NL());
+//    mHeader<<append("{" + NL());
 
     //Header of the source file...
     mSource<<"#include <math.h>"<<endl;
@@ -226,9 +227,9 @@ void CModelGenerator::writeOutVariables(CodeBuilder& ignore)
 
 void CModelGenerator::writeComputeAllRatesOfChange(CodeBuilder& ignore, const int& numIndependentSpecies, const int& numDependentSpecies, DoubleMatrix& L0)
 {
-    //In header
-    mHeader.AddFunctionExport("void", "computeAllRatesOfChange(ModelData* md)");
-    mSource<<Append("//Uses the equation: dSd/dt = L0 dSi/dt" + NL());
+     //In header
+       mHeader.AddFunctionExport("void", "computeAllRatesOfChange(ModelData* md)");
+    mSource<<append("//Uses the equation: dSd/dt = L0 dSi/dt" + NL());
     mSource<<"void computeAllRatesOfChange(ModelData* md)\n{";
 
     mSource<<gNL<<gTab<<"int i;\n";
@@ -239,33 +240,33 @@ void CModelGenerator::writeComputeAllRatesOfChange(CodeBuilder& ignore, const in
 
     for (int i = 0; i < numAdditionalRates(); i++)
     {
-        mSource<<Format("\tdTemp[{0}] = {1};{2}", i, mMapRateRule[i], NL());
+        mSource<<format("\tdTemp[{0}] = {1};{2}", i, mMapRateRule[i], NL());
     }
 
     mSource<<gTab<<"for(i = 0; i < md->amountsSize; i++)\n";
     mSource<<gTab<<"{\n"<<gTab<<gTab<<"dTemp[i + md->rateRulesSize] = md->amounts[i];\n\t}";
-    mSource<<Append("\n\t//amounts.CopyTo(dTemp, rateRules.Length); " + NL());
+    mSource<<append("\n\t//amounts.CopyTo(dTemp, rateRules.Length); " + NL());
 
-    mSource<<Append("\t__evalModel(md, md->time, dTemp);" + NL());
+    mSource<<append("\t__evalModel(md, md->time, dTemp);" + NL());
     bool isThereAnEntry = false;
     for (int i = 0; i < numDependentSpecies; i++)
     {
-        mSource<<Format("\tmd->dydt[{0}] = ", (numIndependentSpecies + i));
+        mSource<<format("\tmd->dydt[{0}] = ", (numIndependentSpecies + i));
         isThereAnEntry = false;
         for (int j = 0; j < numIndependentSpecies; j++)
         {
-            string dyName = Format("md->dydt[{0}]", j);
+            string dyName = format("md->dydt[{0}]", j);
 
             if (L0(i,j) > 0)
             {
                 isThereAnEntry = true;
                 if (L0(i,j) == 1)
                 {
-                    mSource<<Format(" + {0};{1}", dyName, NL());
+                    mSource<<format(" + {0};{1}", dyName, NL());
                 }
                 else
                 {
-                    mSource<<Format(" + (double){0}{1}{2};{3}", writeDouble(L0(i,j)), mFixAmountCompartments, dyName, NL());
+                    mSource<<format(" + (double){0}{1}{2};{3}", writeDouble(L0(i,j)), mFixAmountCompartments, dyName, NL());
                 }
             }
             else if (L0(i,j) < 0)
@@ -273,24 +274,24 @@ void CModelGenerator::writeComputeAllRatesOfChange(CodeBuilder& ignore, const in
                 isThereAnEntry = true;
                 if (L0(i,j) == -1)
                 {
-                    mSource<<Format(" - {0};{1}", dyName, NL());
+                    mSource<<format(" - {0};{1}", dyName, NL());
                 }
                 else
                 {
-                    mSource<<Format(" - (double){0}{1}{2};{3}", writeDouble(fabs(L0(i,j))), mFixAmountCompartments, dyName, NL());
+                    mSource<<format(" - (double){0}{1}{2};{3}", writeDouble(fabs(L0(i,j))), mFixAmountCompartments, dyName, NL());
                 }
             }
         }
         if (!isThereAnEntry)
         {
-            mSource<<Append("0;");
+            mSource<<append("0;");
         }
         mSource<<"\n";
     }
 
     // done with temp buffer
     mSource << "\n\tfree(dTemp);\n";
-    mSource<<Format("}{0}{0}", NL());
+    mSource<<format("}{0}{0}", NL());
 }
 
 void CModelGenerator::writeComputeConservedTotals(CodeBuilder& ignore, const int& numFloatingSpecies, const int& numDependentSpecies)
@@ -307,7 +308,7 @@ void CModelGenerator::writeComputeConservedTotals(CodeBuilder& ignore, const int
 
         for (int i = 0; i < numDependentSpecies; i++)
         {
-            mSource<<Format("\n\tmd->ct[{0}] = ", i);
+            mSource<<format("\n\tmd->ct[{0}] = ", i);
             for (int j = 0; j < numFloatingSpecies; j++)
             {
                 double current = (gamma != NULL) ? (*gamma)(i,j) : 1.0;    //Todo: This is a bug? We should not be here if the matrix is NULL.. Triggered by model 00029
@@ -333,20 +334,20 @@ void CModelGenerator::writeComputeConservedTotals(CodeBuilder& ignore, const int
                     {
                         string cYY = convertSpeciesToY(mFloatingSpeciesConcentrationList[j].name);
                         string cTC = convertCompartmentToC(mFloatingSpeciesConcentrationList[j].compartmentName);
-                        mSource<<Append(" + " + factor + "md->" + cYY +
+                        mSource<<append(" + " + factor + "md->" + cYY +
                                   mFixAmountCompartments +
                                   convertCompartmentToC(mFloatingSpeciesConcentrationList[j].compartmentName));
                     }
                     else
                     {
-                        mSource<<Append(" - " + factor + convertSpeciesToY(mFloatingSpeciesConcentrationList[j].name) +
+                        mSource<<append(" - " + factor + convertSpeciesToY(mFloatingSpeciesConcentrationList[j].name) +
                                   mFixAmountCompartments +
                                   convertCompartmentToC(mFloatingSpeciesConcentrationList[j].compartmentName));
                     }
                 }
             }
-            mSource<<Append(";" + NL());
-            mConservationList.Add(Symbol("CSUM" + ToString(i))); //TODO: how to deal with this?
+            mSource<<append(";" + NL());
+            mConservationList.Add(Symbol("CSUM" + toString(i))); //TODO: how to deal with this?
         }
     }
     else
@@ -359,8 +360,8 @@ void CModelGenerator::writeComputeConservedTotals(CodeBuilder& ignore, const int
 void CModelGenerator::writeUpdateDependentSpecies(CodeBuilder& ignore, const int& numIndependentSpecies, const int& numDependentSpecies, DoubleMatrix& L0)
 {
     mHeader.AddFunctionExport("void", "updateDependentSpeciesValues(ModelData* md, double* y)");
-    mSource<<Append("// Compute values of dependent species " + NL());
-    mSource<<Append("// Uses the equation: Sd = C + L0*Si" + NL());
+    mSource<<append("// Compute values of dependent species " + NL());
+    mSource<<append("// Uses the equation: Sd = C + L0*Si" + NL());
     mSource<<"void updateDependentSpeciesValues(ModelData* md, double* y)\n{";
 
     // Use the equation: Sd = C + L0*Si to compute dependent concentrations
@@ -369,15 +370,15 @@ void CModelGenerator::writeUpdateDependentSpecies(CodeBuilder& ignore, const int
     {
         for (int i = 0; i < numDependentSpecies; i++)
         {
-            mSource<<Format("\n\tmd->y[{0}] = ", (i + numIndependentSpecies));
-            mSource<<Format("(md->ct[{0}]", i);
+            mSource<<format("\n\tmd->y[{0}] = ", (i + numIndependentSpecies));
+            mSource<<format("(md->ct[{0}]", i);
             string cLeftName =
                 convertCompartmentToC(
                     mFloatingSpeciesConcentrationList[i + numIndependentSpecies].compartmentName);
 
             for (int j = 0; j < numIndependentSpecies; j++)
             {
-                string yName = Format("y[{0}]", j);
+                string yName = format("y[{0}]", j);
                 string cName = convertCompartmentToC(mFloatingSpeciesConcentrationList[j].compartmentName);
                 double* mat = L0.GetPointer();
                 double matElementValue = L0(i,j);
@@ -386,7 +387,7 @@ void CModelGenerator::writeUpdateDependentSpecies(CodeBuilder& ignore, const int
                 {
                     if (L0(i,j) == 1)
                     {
-                        mSource<<Format(" + {0}\t{1}{2}{3}{0}\t",
+                        mSource<<format(" + {0}\t{1}{2}{3}{0}\t",
                             "",
                             yName,
                             mFixAmountCompartments,
@@ -394,7 +395,7 @@ void CModelGenerator::writeUpdateDependentSpecies(CodeBuilder& ignore, const int
                     }
                     else
                     {
-                        mSource<<Format("{0} + (double){1}{2}{3}{2}{4}",
+                        mSource<<format("{0} + (double){1}{2}{3}{2}{4}",
                             "",
                             writeDouble(L0(i,j)),
                             mFixAmountCompartments,
@@ -406,7 +407,7 @@ void CModelGenerator::writeUpdateDependentSpecies(CodeBuilder& ignore, const int
                 {
                     if (L0(i,j) == -1)
                     {
-                        mSource<<Format("{0} - {1}{2}{3}",
+                        mSource<<format("{0} - {1}{2}{3}",
                             "",
                             yName,
                             mFixAmountCompartments,
@@ -414,7 +415,7 @@ void CModelGenerator::writeUpdateDependentSpecies(CodeBuilder& ignore, const int
                     }
                     else
                     {
-                        mSource<<Format("{0} - (double){1}{2}{3}{2}{4}",
+                        mSource<<format("{0} - (double){1}{2}{3}{2}{4}",
                             "",
                             writeDouble(fabsl(L0(i,j))),
                             mFixAmountCompartments,
@@ -423,10 +424,10 @@ void CModelGenerator::writeUpdateDependentSpecies(CodeBuilder& ignore, const int
                     }
                 }
             }
-            mSource<<Format(") / {0};{1}", cLeftName, NL());
+            mSource<<format(") / {0};{1}", cLeftName, NL());
         }
     }
-    mSource<<Format("}{0}{0}", NL());
+    mSource<<format("}{0}{0}", NL());
 }
 
 void CModelGenerator::writeUserDefinedFunctions(CodeBuilder& ignore)
@@ -440,46 +441,46 @@ void CModelGenerator::writeUserDefinedFunctions(CodeBuilder& ignore)
 
               string sName = aList[0];
               //sName.Trim();
-            mFunctionNames.Add(sName);
+            mFunctionNames.add(sName);
             StringList oArguments = oList[1];
             StringList list2 = oList[2];
             string sBody = list2[0];
 
-            mSource<<Format("// User defined function:  {0}{1}", sName, NL());
-            mSource<<Format("\t double {0} (", sName);
+            mSource<<format("// User defined function:  {0}{1}", sName, NL());
+            mSource<<format("\t double {0} (", sName);
 
             for (int j = 0; j < oArguments.Count(); j++)
             {
-                mSource<<Append("double " + (string)oArguments[j]);
-                mFunctionParameters.Add((string)oArguments[j]);
+                mSource<<append("double " + (string)oArguments[j]);
+                mFunctionParameters.add((string)oArguments[j]);
                 if (j < oArguments.Count() - 1)
                 {
-                    mSource<<Append(", ");
+                    mSource<<append(", ");
                 }
             }
             string userFunc = convertUserFunctionExpression(sBody);
 
             if(userFunc.find("spf_piecewise") != string::npos)
             {
-                ConvertFunctionCallToUseVarArgsSyntax("spf_piecewise", userFunc);
+                convertFunctionCallToUseVarArgsSyntax("spf_piecewise", userFunc);
             }
 
             if(userFunc.find("spf_and") != string::npos)
             {
-                ConvertFunctionCallToUseVarArgsSyntax("spf_and", userFunc);
+                convertFunctionCallToUseVarArgsSyntax("spf_and", userFunc);
             }
 
             if(userFunc.find("spf_or") != string::npos)
             {
-                ConvertFunctionCallToUseVarArgsSyntax("spf_or", userFunc);
+                convertFunctionCallToUseVarArgsSyntax("spf_or", userFunc);
             }
 
             if(userFunc.find("spf_xor") != string::npos)
             {
-                ConvertFunctionCallToUseVarArgsSyntax("spf_xor", userFunc);
+                convertFunctionCallToUseVarArgsSyntax("spf_xor", userFunc);
             }
 
-            mSource<<Append(")" + NL() + "\t{" + NL() + "\t\t return " +
+            mSource<<append(")" + NL() + "\t{" + NL() + "\t\t return " +
                       userFunc
                       + ";" + NL() + "\t}" + NL() + NL());
         }
@@ -498,59 +499,59 @@ void CModelGenerator::writeResetEvents(CodeBuilder& ignore, const int& numEvents
       mSource<<"void resetEvents(ModelData* md)\n{";
       for (int i = 0; i < numEvents; i++)
       {
-          mSource<<Format("\n\tmd->eventStatusArray[{0}] = false;{1}", i, NL());
-          mSource<<Format("\tmd->previousEventStatusArray[{0}] = false;", i);
+          mSource<<format("\n\tmd->eventStatusArray[{0}] = false;{1}", i, NL());
+          mSource<<format("\tmd->previousEventStatusArray[{0}] = false;", i);
           if(i == numEvents -1)
           {
               mSource<<"\n";
           }
       }
-      mSource<<Format("}{0}", NL());
+      mSource<<format("}{0}", NL());
 }
 
 void CModelGenerator::writeSetConcentration(CodeBuilder& ignore)
 {
     mHeader.AddFunctionExport("void", "setConcentration(ModelData* md, int index, double value)");
     mSource<<"\nvoid setConcentration(ModelData* md, int index, double value)\n{";
-    mSource<<Format("\n\tdouble volume = 0.0;{0}", NL());
-    mSource<<Format("\tmd->y[index] = value;{0}", NL());
-    mSource<<Format("\tswitch (index)\n\t{{0}", NL());
+    mSource<<format("\n\tdouble volume = 0.0;{0}", NL());
+    mSource<<format("\tmd->y[index] = value;{0}", NL());
+    mSource<<format("\tswitch (index)\n\t{{0}", NL());
 
     for (int i = 0; i < mFloatingSpeciesConcentrationList.size(); i++)
     {
-        mSource<<Format("\t\tcase {0}:\n\t\t\tvolume = {1};{2}",
+        mSource<<format("\t\tcase {0}:\n\t\t\tvolume = {1};{2}",
           i,
           convertCompartmentToC(mFloatingSpeciesConcentrationList[i].compartmentName),
           NL());
-      mSource<<Format("\t\tbreak;{0}", NL());
+      mSource<<format("\t\tbreak;{0}", NL());
     }
 
-    mSource<<Format("\t}{0}", NL());
+    mSource<<format("\t}{0}", NL());
 
-    mSource<<Format("\tmd->amounts[index] = md->y[index]*volume;{0}", NL());
-    mSource<<Format("}{0}{0}", NL());
+    mSource<<format("\tmd->amounts[index] = md->y[index]*volume;{0}", NL());
+    mSource<<format("}{0}{0}", NL());
 }
 
 void CModelGenerator::writeGetConcentration(CodeBuilder& ignore)
 {
     mHeader.AddFunctionExport("double", "getConcentration(ModelData* md,int index)");
-    mSource<<Format("double getConcentration(ModelData* md, int index)\n{{0}", NL());
-    mSource<<Format("\treturn md->y[index];{0}", NL());
-    mSource<<Format("}{0}{0}", NL());
+    mSource<<format("double getConcentration(ModelData* md, int index)\n{{0}", NL());
+    mSource<<format("\treturn md->y[index];{0}", NL());
+    mSource<<format("}{0}{0}", NL());
 }
 
 void CModelGenerator::writeConvertToAmounts(CodeBuilder& ignore)
 {
     mHeader.AddFunctionExport("void", "convertToAmounts(ModelData* md)");
-    mSource<<Format("void convertToAmounts(ModelData* md)\n{{0}", NL());
+    mSource<<format("void convertToAmounts(ModelData* md)\n{{0}", NL());
     for (int i = 0; i < mFloatingSpeciesConcentrationList.size(); i++)
     {
-        mSource<<Format("\tmd->amounts[{0}] = md->y[{0}]*{1};{2}",
+        mSource<<format("\tmd->amounts[{0}] = md->y[{0}]*{1};{2}",
             i,
             convertCompartmentToC(mFloatingSpeciesConcentrationList[i].compartmentName),
             NL());
     }
-    mSource<<Format("}{0}{0}", NL());
+    mSource<<format("}{0}{0}", NL());
 }
 
 void CModelGenerator::writeConvertToConcentrations(CodeBuilder& ignore)
@@ -562,7 +563,7 @@ void CModelGenerator::writeConvertToConcentrations(CodeBuilder& ignore)
         mSource<<"\n\tmd->y[" << i << "] = md->amounts[" << i << "] / " <<
                   convertCompartmentToC(mFloatingSpeciesConcentrationList[i].compartmentName) << ";";
     }
-    mSource<<Append("\n}" + NL() + NL());
+    mSource<<append("\n}" + NL() + NL());
 }
 
 void CModelGenerator::writeProperties(CodeBuilder& ignore)
@@ -581,53 +582,53 @@ string CModelGenerator::findSymbol(const string& varName)
       int index = 0;
       if (mFloatingSpeciesConcentrationList.find(varName, index))
       {
-          return Format("md->y[{0}]", index);
+          return format("md->y[{0}]", index);
       }
       else if (mGlobalParameterList.find(varName, index))
       {
-          return Format("md->gp[{0}]", index);
+          return format("md->gp[{0}]", index);
       }
       else if (mBoundarySpeciesList.find(varName, index))
       {
-          return Format("md->bc[{0}]", index);
+          return format("md->bc[{0}]", index);
       }
       else if (mCompartmentList.find(varName, index))
       {
-          return Format("md->c[{0}]", index);
+          return format("md->c[{0}]", index);
       }
       else if (mModifiableSpeciesReferenceList.find(varName, index))
       {
-          return Format("md->sr[{0}]", index);
+          return format("md->sr[{0}]", index);
       }
       else
       {
-          throw Exception(Format("Unable to locate lefthand side symbol in assignment[{0}]", varName));
+          throw Exception(format("Unable to locate lefthand side symbol in assignment[{0}]", varName));
       }
 }
 
 void CModelGenerator::writeTestConstraints(CodeBuilder& ignore)
 {
     mHeader.AddFunctionExport("void", "testConstraints(ModelData* md)");
-    mSource<<Append("void testConstraints(ModelData* md)" + NL());
-    mSource<<Append("{");
+    mSource<<append("void testConstraints(ModelData* md)" + NL());
+    mSource<<append("{");
 
     for (int i = 0; i < mNOM->getNumConstraints(); i++)
     {
         string sMessage;
         string sCheck = mNOM->getNthConstraint(i, sMessage);
 
-        mSource<<Append("\tif (" + substituteTerms(mNOM->getNumReactions(), "", sCheck) + " == 0.0 )" + NL());
-        mSource<<Append("\t\tthrow new Exception(\"" + sMessage + "\");" + NL());
+        mSource<<append("\tif (" + substituteTerms(mNOM->getNumReactions(), "", sCheck) + " == 0.0 )" + NL());
+        mSource<<append("\t\tthrow new Exception(\"" + sMessage + "\");" + NL());
     }
 
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
 }
 
 void CModelGenerator::writeEvalInitialAssignments(CodeBuilder& ignore, const int& numReactions)
 {
     mHeader.AddFunctionExport("void", "evalInitialAssignments(ModelData* md)");
-    mSource<<Append("void evalInitialAssignments(ModelData* md)" + NL());
-    mSource<<Append("{\n");
+    mSource<<append("void evalInitialAssignments(ModelData* md)" + NL());
+    mSource<<append("{\n");
 
     int numInitialAssignments = mNOM->getNumInitialAssignments();
 
@@ -682,8 +683,8 @@ void CModelGenerator::writeEvalInitialAssignments(CodeBuilder& ignore, const int
             string rightSideRule = pair.second;
             if (leftSideRule.size())
             {
-                mSource<<Append(leftSideRule + " = ");
-                string temp = Append(substituteTerms(numReactions, "", rightSideRule) + ";" + NL());
+                mSource<<append(leftSideRule + " = ");
+                string temp = append(substituteTerms(numReactions, "", rightSideRule) + ";" + NL());
                 mSource<<temp;
             }
         }
@@ -691,11 +692,11 @@ void CModelGenerator::writeEvalInitialAssignments(CodeBuilder& ignore, const int
     for (int i = 0; i < mNOM->getModel()->getNumEvents(); i++)
     {
         libsbml::Event *current = mNOM->getModel()->getEvent(i);
-        string initialTriggerValue = ToString(current->getTrigger()->getInitialValue());//.ToString().ToLowerInvariant();
-        mSource<<Append("\tmd->eventStatusArray[" + ToString(i) + "] = " + initialTriggerValue + ";" + NL());
-        mSource<<Append("\tmd->previousEventStatusArray[" + ToString(i) + "] = " + initialTriggerValue + ";" + NL());
+        string initialTriggerValue = toString(current->getTrigger()->getInitialValue());//.ToString().ToLowerInvariant();
+        mSource<<append("\tmd->eventStatusArray[" + toString(i) + "] = " + initialTriggerValue + ";" + NL());
+        mSource<<append("\tmd->previousEventStatusArray[" + toString(i) + "] = " + initialTriggerValue + ";" + NL());
     }
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
 }
 
 int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReactions)
@@ -719,8 +720,8 @@ int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReacti
             // We only support assignment and ode rules at the moment
             string eqnRule = mNOM->getNthRule(i);
             RRRule aRule(eqnRule, ruleType);
-            string varName       = Trim(aRule.GetLHS());
-            string rightSide     = Trim(aRule.GetRHS());
+            string varName       = trim(aRule.GetLHS());
+            string rightSide     = trim(aRule.GetRHS());
 
             bool isRateRule = false;
 
@@ -740,12 +741,12 @@ int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReacti
                     int index;
                     if (mFloatingSpeciesConcentrationList.find(varName,  index))
                     {
-                        leftSideRule = Format("\n\tmd->dydt[{0}]", index);
+                        leftSideRule = format("\n\tmd->dydt[{0}]", index);
                         mFloatingSpeciesConcentrationList[index].rateRule = true;
                     }
                     else
                     {
-                        leftSideRule = "\n\tmd->rateRules[" + ToString(numRateRules) + "]";
+                        leftSideRule = "\n\tmd->rateRules[" + toString(numRateRules) + "]";
                         mMapRateRule[numRateRules] = findSymbol(varName);
                         mapVariables[numRateRules] = varName;
                         numRateRules++;
@@ -762,7 +763,7 @@ int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReacti
 
             if (leftSideRule.size())
             {
-                mSource<<gTab<<Append(leftSideRule + " = ");
+                mSource<<gTab<<append(leftSideRule + " = ");
                 int speciesIndex;
                 bool isSpecies = mFloatingSpeciesConcentrationList.find(varName, speciesIndex);
 
@@ -771,7 +772,7 @@ int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReacti
 
                 if(isRateRule && mNOM->multiplyCompartment(varName, sCompartment) && (rightSide.find(sCompartment) == string::npos))
                 {
-                    string temp = Format("({0}) * {1};{2}", substituteTerms(numReactions, "", rightSideRule), findSymbol(sCompartment), NL());
+                    string temp = format("({0}) * {1};{2}", substituteTerms(numReactions, "", rightSideRule), findSymbol(sCompartment), NL());
                     //temp = ReplaceWord("time", "md->time", temp);
                     mSource<<temp;
                 }
@@ -779,35 +780,35 @@ int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReacti
                 {
                     if (isSpecies && !isRateRule && symbol != NULL && symbol->hasOnlySubstance && symbol->compartmentName.size() != 0)
                     {
-                        mSource<<Format("({0}) / {1};{2}", substituteTerms(numReactions, "", rightSideRule), findSymbol(symbol->compartmentName), NL());
+                        mSource<<format("({0}) / {1};{2}", substituteTerms(numReactions, "", rightSideRule), findSymbol(symbol->compartmentName), NL());
                     }
                     else
                     {
-                        string temp   = Format("{0};{1}", substituteTerms(numReactions, "", rightSideRule), NL());
+                        string temp   = format("{0};{1}", substituteTerms(numReactions, "", rightSideRule), NL());
                         //temp = ReplaceWord("time", "md->time", temp);
 
                         if(temp.find("spf_piecewise") != string::npos)
                         {
-                            ConvertFunctionCallToUseVarArgsSyntax("spf_piecewise", temp);
+                            convertFunctionCallToUseVarArgsSyntax("spf_piecewise", temp);
                         }
-                        temp = RemoveNewLines(temp);
+                        temp = removeNewLines(temp);
                         mSource<<temp;
                     }
                 }
 
                 if (mNOM->isCompartment(varName))
                 {
-                    mSource<<Append("\n\tconvertToConcentrations(md);\n");
+                    mSource<<append("\n\tconvertToConcentrations(md);\n");
                 }
             }
         }
         catch (const Exception& e)
         {
-            throw CoreException("Error while trying to get Rule #" + ToString(i) + e.Message());
+            throw CoreException("Error while trying to get Rule #" + toString(i) + e.Message());
         }
     }
 
-    mSource<<Append("\n}" + NL() + NL());
+    mSource<<append("\n}" + NL() + NL());
 
 //  mHeader.FormatArray("D_S double", "_rateRules", numRateRules, "Vector containing values of additional rate rules"); //Todo: why is t his here in nowhere?
 //    mHeader<<"D_S int _rateRulesSize="<<numRateRules<<";           // Number of rateRules   \n"; //Todo: why is this here in nowhere?
@@ -820,10 +821,10 @@ int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReacti
         mSource<<"\n\tmd->rateRules[" << i << "] = " << mMapRateRule[i] << ";" << NL();
     }
 
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
 
     mHeader.AddFunctionExport("void", "AssignRatesA(ModelData* md)");
-    mSource<<Append("void AssignRatesA(ModelData* md)\n{" + NL());
+    mSource<<append("void AssignRatesA(ModelData* md)\n{" + NL());
 
     for (int i = 0; i < mMapRateRule.size(); i++)
     {
@@ -834,7 +835,7 @@ int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReacti
         mSource<<"\t"<<(string) mMapRateRule[i] << " = md->rateRules[" << i << "];\n";
     }
 
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
 
     mHeader.AddFunctionExport("void", "InitializeRateRuleSymbols(ModelData* md)");
     mSource<<"void InitializeRateRuleSymbols(ModelData* md) \n{";
@@ -849,9 +850,9 @@ int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReacti
         if(varName.size())
         {
             double value = mNOM->getValue(varName);
-            if (!IsNaN(value))
+            if (!isNaN(value))
             {
-                mSource<<gTab<<mMapRateRule[i] << " = " << ToString(value, mDoubleFormat) << ";" << NL();
+                mSource<<gTab<<mMapRateRule[i] << " = " << toString(value, mDoubleFormat) << ";" << NL();
             }
         }
     }
@@ -870,7 +871,7 @@ int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReacti
         mSource<< mMapRateRule[i] << " = oRates[" << i << "];" << NL();
     }
 
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
     mHeader.AddFunctionExport("double*", "GetCurrentValues(ModelData* md)");
     mSource<<"double* GetCurrentValues(ModelData* md)\n{";
     mSource<<"\n\tdouble* dResult = (double*) calloc(" << numAdditionalRates() << ", sizeof(double));\n";
@@ -886,14 +887,14 @@ int CModelGenerator::writeComputeRules(CodeBuilder& ignore, const int& numReacti
     }
     mSource<<"\treturn dResult;\n";
 
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
     return numOfRules;
 }
 
 void CModelGenerator::writeComputeReactionRates(CodeBuilder& ignore, const int& numReactions)
 {
     mHeader.AddFunctionExport("void", "computeReactionRates(ModelData* md, double time, double *y)");
-    mSource<<Append("// Compute the reaction rates" + NL());
+    mSource<<append("// Compute the reaction rates" + NL());
     mSource<<"void computeReactionRates(ModelData* md, double time, double *y)\n{";    //Todo: what is time doing here?
 
 
@@ -918,47 +919,47 @@ void CModelGenerator::writeComputeReactionRates(CodeBuilder& ignore, const int& 
         string modKineticLaw = substituteTerms(mReactionList[i].name, subKineticLaw, true) + ";";
 
         // modify to use current y ...
-        modKineticLaw = Substitute(modKineticLaw, "_y[", "y[");
-        string expression = Format("\n\tmd->rates[{0}] = {1}{2}", i, modKineticLaw, NL());
+        modKineticLaw = substitute(modKineticLaw, "_y[", "y[");
+        string expression = format("\n\tmd->rates[{0}] = {1}{2}", i, modKineticLaw, NL());
 
         if(expression.find("spf_and") != string::npos)
         {
-            ConvertFunctionCallToUseVarArgsSyntax("spf_and", expression);
+            convertFunctionCallToUseVarArgsSyntax("spf_and", expression);
         }
 
         if(expression.find("spf_or") != string::npos)
         {
-            ConvertFunctionCallToUseVarArgsSyntax("spf_or", expression);
+            convertFunctionCallToUseVarArgsSyntax("spf_or", expression);
         }
 
         if(expression.find("spf_xor") != string::npos)
         {
-            ConvertFunctionCallToUseVarArgsSyntax("spf_xor", expression);
+            convertFunctionCallToUseVarArgsSyntax("spf_xor", expression);
         }
 
         if(expression.find("spf_squarewave") != string::npos)
         {
-            ConvertFunctionCallToUseVarArgsSyntax("spf_squarewave", expression);
+            convertFunctionCallToUseVarArgsSyntax("spf_squarewave", expression);
         }
 
         if(expression.find("spf_piecewise") != string::npos)
         {
-            ConvertFunctionCallToUseVarArgsSyntax("spf_piecewise", expression);
+            convertFunctionCallToUseVarArgsSyntax("spf_piecewise", expression);
         }
 
-        expression = RemoveChars(expression, "\t \n");
+        expression = removeChars(expression, "\t \n");
         mSource<<"\n\t"<<expression<<"\n";
     }
 
-    mSource<<Format("}{0}{0}", NL());
+    mSource<<format("}{0}{0}", NL());
 }
 
 void CModelGenerator::writeEvalEvents(CodeBuilder& ignore, const int& numEvents, const int& numFloatingSpecies)
 {
-    mSource<<Append("//Event handling function" + NL());
+    mSource<<append("//Event handling function" + NL());
     mHeader.AddFunctionExport("void", "evalEvents(ModelData* md, double timeIn, double *oAmounts)");
-    mSource<<Append("void evalEvents(ModelData* md, double timeIn, double *oAmounts)" + NL());
-    mSource<<Append("{" + NL());
+    mSource<<append("void evalEvents(ModelData* md, double timeIn, double *oAmounts)" + NL());
+    mSource<<append("{" + NL());
 
     if (numEvents > 0)
     {
@@ -973,9 +974,9 @@ void CModelGenerator::writeEvalEvents(CodeBuilder& ignore, const int& numEvents,
         }
     }
 
-    mSource<<Append("\tmd->time = timeIn;" + NL());
-    mSource<<Append("\tupdateDependentSpeciesValues(md, md->y);" + NL());
-    mSource<<Append("\tcomputeRules(md, md->y);" + NL());
+    mSource<<append("\tmd->time = timeIn;" + NL());
+    mSource<<append("\tupdateDependentSpeciesValues(md, md->y);" + NL());
+    mSource<<append("\tcomputeRules(md, md->y);" + NL());
 
     for (int i = 0; i < numEvents; i++)
     {
@@ -985,23 +986,23 @@ void CModelGenerator::writeEvalEvents(CodeBuilder& ignore, const int& numEvents,
 
         eventString = substituteTerms(0, "", eventString);
         mSource<<"\tmd->previousEventStatusArray[" << i << "] = md->eventStatusArray[" << i << "];" << NL();
-        ConvertFunctionCallToUseVarArgsSyntax("spf_and", eventString);
-        eventString = RemoveNewLines(eventString);
-        mSource<<Append("\tif (" + eventString + " == 1.0)\n\t{" + NL());
-        mSource<<Append("\t\tmd->eventStatusArray[" + ToString(i) + "] = true;" + NL());
-        mSource<<Append("\t\tmd->eventTests[" + ToString(i) + "] = 1;" + NL());
-        mSource<<Append("\n\t}\n\telse\n\t{\n");
-        mSource<<Append("\t\tmd->eventStatusArray[" + ToString(i) + "] = false;" + NL());
-        mSource<<Append("\t\tmd->eventTests[" + ToString(i) + "] = -1;" + NL());
-        mSource<<Append("\t}" + NL());
+        convertFunctionCallToUseVarArgsSyntax("spf_and", eventString);
+        eventString = removeNewLines(eventString);
+        mSource<<append("\tif (" + eventString + " == 1.0)\n\t{" + NL());
+        mSource<<append("\t\tmd->eventStatusArray[" + toString(i) + "] = true;" + NL());
+        mSource<<append("\t\tmd->eventTests[" + toString(i) + "] = 1;" + NL());
+        mSource<<append("\n\t}\n\telse\n\t{\n");
+        mSource<<append("\t\tmd->eventStatusArray[" + toString(i) + "] = false;" + NL());
+        mSource<<append("\t\tmd->eventTests[" + toString(i) + "] = -1;" + NL());
+        mSource<<append("\t}" + NL());
     }
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
 }
 
 void CModelGenerator::writeEvalModel(CodeBuilder& ignore, const int& numReactions, const int& numIndependentSpecies, const int& numFloatingSpecies, const int& numOfRules)
 {
     mHeader.AddFunctionExport("void", "__evalModel(ModelData* md, double, double*)");
-    mSource<<Append("//Model Function" + NL());
+    mSource<<append("//Model Function" + NL());
     mSource<<"void __evalModel(ModelData* md, double timein, double* oAmounts)\n{";
 
 
@@ -1016,17 +1017,17 @@ void CModelGenerator::writeEvalModel(CodeBuilder& ignore, const int& numReaction
                   convertCompartmentToC(mFloatingSpeciesConcentrationList[i].compartmentName) << ";" << NL();
     }
 
-    mSource<<Append(NL());
-    mSource<<Append("\tconvertToAmounts(md);" + NL());
-    mSource<<Append("\tmd->time = timein;  // Don't remove" + NL());
-    mSource<<Append("\tupdateDependentSpeciesValues(md, md->y);" + NL());
+    mSource<<append(NL());
+    mSource<<append("\tconvertToAmounts(md);" + NL());
+    mSource<<append("\tmd->time = timein;  // Don't remove" + NL());
+    mSource<<append("\tupdateDependentSpeciesValues(md, md->y);" + NL());
 
     if (numOfRules > 0)
     {
-        mSource<<Append("\tcomputeRules(md, md->y);" + NL());
+        mSource<<append("\tcomputeRules(md, md->y);" + NL());
     }
 
-    mSource<<Append("\tcomputeReactionRates(md, md->time, md->y);" + NL());
+    mSource<<append("\tcomputeReactionRates(md, md->time, md->y);" + NL());
 
     // write out the ODE equations
     string stoich;
@@ -1062,7 +1063,7 @@ void CModelGenerator::writeEvalModel(CodeBuilder& ignore, const int& numReaction
                             int denom = product->getDenominator();
                             if (denom != 1)
                             {
-                                stoich = Format("((double){0}/(double){1})*", writeDouble(productStoichiometry), denom);
+                                stoich = format("((double){0}/(double){1})*", writeDouble(productStoichiometry), denom);
                             }
                             else
                             {
@@ -1088,7 +1089,7 @@ void CModelGenerator::writeEvalModel(CodeBuilder& ignore, const int& numReaction
                             stoich = "";
                         }
                     }
-                    eqnBuilder<<Format(" + {0}md->rates[{1}]", stoich, j);
+                    eqnBuilder<<format(" + {0}md->rates[{1}]", stoich, j);
                 }
             }
 
@@ -1104,7 +1105,7 @@ void CModelGenerator::writeEvalModel(CodeBuilder& ignore, const int& numReaction
 
                     if (reactant->isSetId() && reactant->getLevel() > 2)
                     {
-                        stoich = Format("({0}) * ", substituteTerms(numReactions, "", reactant->getId()));
+                        stoich = format("({0}) * ", substituteTerms(numReactions, "", reactant->getId()));
                     }
                     else if (reactant->isSetStoichiometry())
                     {
@@ -1113,7 +1114,7 @@ void CModelGenerator::writeEvalModel(CodeBuilder& ignore, const int& numReaction
                             int denom = reactant->getDenominator();
                             if (denom != 1)
                             {
-                                stoich = Format("((double){0}/(double){1})*", writeDouble(reactantStoichiometry), denom);
+                                stoich = format("((double){0}/(double){1})*", writeDouble(reactantStoichiometry), denom);
                             }
                             else
                             {
@@ -1141,14 +1142,14 @@ void CModelGenerator::writeEvalModel(CodeBuilder& ignore, const int& numReaction
                         }
                     }
 
-                    eqnBuilder<<Append(Format(" - {0}md->rates[{1}]", stoich, j));
+                    eqnBuilder<<append(format(" - {0}md->rates[{1}]", stoich, j));
                 }
             }
         }
 
-        string finalStr = eqnBuilder.ToString();//.Trim();
+        string finalStr = eqnBuilder.ToString();//.trim();
 
-        if (IsNullOrEmpty(finalStr))
+        if (isNullOrEmpty(finalStr))
         {
             finalStr = "    0.0";
         }
@@ -1170,7 +1171,7 @@ void CModelGenerator::writeEvalModel(CodeBuilder& ignore, const int& numReaction
                 }
             }
 
-            if (!IsNullOrEmpty(factor))
+            if (!isNullOrEmpty(factor))
             {
                 finalStr = findSymbol(factor) + " * (" + finalStr + ")";
             }
@@ -1184,8 +1185,8 @@ void CModelGenerator::writeEvalModel(CodeBuilder& ignore, const int& numReaction
         }
     }
 
-    mSource<<Append("\tconvertToAmounts(md);" + NL());
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("\tconvertToAmounts(md);" + NL());
+    mSource<<append("}" + NL() + NL());
 }
 
 void CModelGenerator::writeEventAssignments(CodeBuilder& ignore, const int& numReactions, const int& numEvents)
@@ -1200,7 +1201,7 @@ void CModelGenerator::writeEventAssignments(CodeBuilder& ignore, const int& numR
         mSource<<("TPerformEventAssignmentDelegate* Get_performEventAssignments(ModelData* md) \n{\n\treturn md->performEventAssignments;\n}\n\n");
         mSource<<("TComputeEventAssignmentDelegate* Get_computeEventAssignments(ModelData* md) \n{\n\treturn md->computeEventAssignments;\n}\n\n");
         mSource<<("TEventDelayDelegate* GetEventDelays(ModelData* md) \n{\n\treturn md->eventDelays;\n}\n\n");
-        mSource<<Append("// Event assignments" + NL());
+        mSource<<append("// Event assignments" + NL());
         for (int i = 0; i < numEvents; i++)
         {
             ArrayList ev = mNOM->getNthEvent(i);
@@ -1210,25 +1211,25 @@ void CModelGenerator::writeEventAssignments(CodeBuilder& ignore, const int& numR
             StringList event = ev[1];
             int numItems = event.Count();
             string str = substituteTerms(numReactions, "", event[0]);
-            delays.Add(str);
+            delays.add(str);
 
-            mSource<<Format("void eventAssignment_{0}(ModelData* md) \n{{1}", i, NL());
+            mSource<<format("void eventAssignment_{0}(ModelData* md) \n{{1}", i, NL());
 
-            string funcName(Format("performEventAssignment_{0}(ModelData* md, double* values)", i));
+            string funcName(format("performEventAssignment_{0}(ModelData* md, double* values)", i));
             mHeader.AddFunctionExport("void", funcName);
-            mSource<<Format("\tperformEventAssignment_{0}(md, computeEventAssignment_{0}(md) );{1}", i, NL());
-            mSource<<Append("}\n\n");
+            mSource<<format("\tperformEventAssignment_{0}(md, computeEventAssignment_{0}(md) );{1}", i, NL());
+            mSource<<append("}\n\n");
 
-            funcName = (Format("computeEventAssignment_{0}(ModelData* md)", i));
+            funcName = (format("computeEventAssignment_{0}(ModelData* md)", i));
             mHeader.AddFunctionExport("double*", funcName);
 
-            mSource<<Format("double* computeEventAssignment_{0}(ModelData* md)\n{{1}", i, NL());
+            mSource<<format("double* computeEventAssignment_{0}(ModelData* md)\n{{1}", i, NL());
             StringList oTemp;
             StringList oValue;
             int nCount = 0;
             int numAssignments = ev.Count() - 2;
 
-            mSource<<Format("\t\tdouble* values = (double*) malloc(sizeof(double)*{0});{1}", numAssignments, NL());
+            mSource<<format("\t\tdouble* values = (double*) malloc(sizeof(double)*{0});{1}", numAssignments, NL());
             for (int j = 2; j < ev.Count(); j++)
             {
                 StringList asgn = (StringList) ev[j];
@@ -1240,42 +1241,42 @@ void CModelGenerator::writeEventAssignments(CodeBuilder& ignore, const int& numR
 
                 if (species != NULL && species->hasOnlySubstance)
                 {
-                    str = Format("{0} = ({1}) / {2}", assignmentVar, substituteTerms(numReactions, "", (string)asgn[1]), findSymbol(species->compartmentName));
+                    str = format("{0} = ({1}) / {2}", assignmentVar, substituteTerms(numReactions, "", (string)asgn[1]), findSymbol(species->compartmentName));
                 }
                 else
                 {
-                    str = Format("{0} = {1}", assignmentVar, substituteTerms(numReactions, "", (string) asgn[1]));
+                    str = format("{0} = {1}", assignmentVar, substituteTerms(numReactions, "", (string) asgn[1]));
                 }
 
-                string sTempVar = Format("values[{0}]", nCount);
+                string sTempVar = format("values[{0}]", nCount);
 
-                oTemp.Add(assignmentVar);
-                oValue.Add(sTempVar);
+                oTemp.add(assignmentVar);
+                oValue.add(sTempVar);
 
                 str = sTempVar+ str.substr(str.find(" ="));
                 nCount++;
-                string temp = Format("\t\t{0};{1}", str, NL());
+                string temp = format("\t\t{0};{1}", str, NL());
                 mSource<<temp;
             }
-            mSource<<Append("\treturn values;" + NL());
-            mSource<<Append("}" + NL());
-            mSource<<Format("void performEventAssignment_{0}(ModelData* md, double* values) \n{{1}", i, NL());
+            mSource<<append("\treturn values;" + NL());
+            mSource<<append("}" + NL());
+            mSource<<format("void performEventAssignment_{0}(ModelData* md, double* values) \n{{1}", i, NL());
 
             for (int j = 0; j < oTemp.Count(); j++)
             {
-                mSource<<Format("\t\t{0} = values[{1}];{2}", oTemp[j], j, NL());
+                mSource<<format("\t\t{0} = values[{1}];{2}", oTemp[j], j, NL());
                 string aStr = (string) oTemp[j];
-                aStr = Trim(aStr);
+                aStr = trim(aStr);
 
-                if (StartsWith(aStr, "md->c[")) //Todo:May have to trim?
+                if (startsWith(aStr, "md->c[")) //Todo:May have to trim?
                 {
-                    mSource<<Append("\t\tconvertToConcentrations(md);" + NL());
+                    mSource<<append("\t\tconvertToConcentrations(md);" + NL());
                 }
             }
 
-            mSource<<Append("}" + NL());
+            mSource<<append("}" + NL());
         }
-        mSource<<Append("\t" + NL());
+        mSource<<append("\t" + NL());
     }
 
     //Have to create TEventDelegate functions here
@@ -1288,12 +1289,12 @@ void CModelGenerator::writeEventAssignments(CodeBuilder& ignore, const int& numR
 
     for (int i = 0; i < delays.Count(); i++)
     {
-        mSource<<Format("\tmd->eventDelays[{0}] = (TEventDelayDelegate) malloc(sizeof(TEventDelayDelegate) * 1);{2}", i, delays[i], NL());
+        mSource<<format("\tmd->eventDelays[{0}] = (TEventDelayDelegate) malloc(sizeof(TEventDelayDelegate) * 1);{2}", i, delays[i], NL());
 
         //Inititialize
-        mSource<<Format("\tmd->eventDelays[{0}] = GetEventDelay_{0};\n", i);
-        mSource<<Format("\tmd->eventType[{0}] = {1};{2}", i, ToString((eventType[i] ? true : false)), NL());
-        mSource<<Format("\tmd->eventPersistentType[{0}] = {1};{2}", i, (eventPersistentType[i] ? "true" : "false"), NL());
+        mSource<<format("\tmd->eventDelays[{0}] = GetEventDelay_{0};\n", i);
+        mSource<<format("\tmd->eventType[{0}] = {1};{2}", i, toString((eventType[i] ? true : false)), NL());
+        mSource<<format("\tmd->eventPersistentType[{0}] = {1};{2}", i, (eventPersistentType[i] ? "true" : "false"), NL());
     }
     mSource<<"}\n\n";
 
@@ -1306,15 +1307,15 @@ void CModelGenerator::writeEventAssignments(CodeBuilder& ignore, const int& numR
         if (current->isSetPriority() && current->getPriority()->isSetMath())
         {
             string priority = SBML_formulaToString(current->getPriority()->getMath());
-            mSource<<"\n"<<Format("\tmd->eventPriorities[{0}] = {1};{2}", i, substituteTerms(numReactions, "", priority), NL());
+            mSource<<"\n"<<format("\tmd->eventPriorities[{0}] = {1};{2}", i, substituteTerms(numReactions, "", priority), NL());
 
         }
         else
         {
-            mSource<<"\n"<<Format("\tmd->eventPriorities[{0}] = 0;{1}", i, NL());
+            mSource<<"\n"<<format("\tmd->eventPriorities[{0}] = 0;{1}", i, NL());
         }
     }
-    mSource<<Format("}{0}{0}", NL());
+    mSource<<format("}{0}{0}", NL());
 }
 
 void CModelGenerator::writeSetParameterValues(CodeBuilder& ignore, const int& numReactions)
@@ -1326,7 +1327,7 @@ void CModelGenerator::writeSetParameterValues(CodeBuilder& ignore, const int& nu
     for (int i = 0; i < mGlobalParameterList.size(); i++)
     {
         //If !+INF
-        string para = Format("\n\t{0} = (double){1};{2}",
+        string para = format("\n\t{0} = (double){1};{2}",
                       convertSymbolToGP(mGlobalParameterList[i].name),
                       writeDouble(mGlobalParameterList[i].value),
                       NL());
@@ -1342,11 +1343,11 @@ void CModelGenerator::writeSetParameterValues(CodeBuilder& ignore, const int& nu
     {
         for (int j = 0; j < mLocalParameterList[i].size(); j++)
         {
-            mSource<<Format("\n\t_lp[{0}][{1}] = (double){2};{3}", i, j, writeDouble(mLocalParameterList[i][j].value), NL());
+            mSource<<format("\n\t_lp[{0}][{1}] = (double){2};{3}", i, j, writeDouble(mLocalParameterList[i][j].value), NL());
         }
     }
 
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
 }
 
 void CModelGenerator::writeSetCompartmentVolumes(CodeBuilder& ignore)
@@ -1356,7 +1357,7 @@ void CModelGenerator::writeSetCompartmentVolumes(CodeBuilder& ignore)
 
     for (int i = 0; i < mCompartmentList.size(); i++)
     {
-        mSource<<Append("\n\t" + convertSymbolToC(mCompartmentList[i].name) + " = (double)" +
+        mSource<<append("\n\t" + convertSymbolToC(mCompartmentList[i].name) + " = (double)" +
                   writeDouble(mCompartmentList[i].value) + ";" + NL());
 
         // at this point we also have to take care of all initial assignments for compartments as well as
@@ -1366,12 +1367,12 @@ void CModelGenerator::writeSetCompartmentVolumes(CodeBuilder& ignore)
         {
             string term(initializations.top());
             string sub = substituteTerms(mNumReactions, "", term);
-            mSource<<Append("\t" + sub + ";" + NL());
+            mSource<<append("\t" + sub + ";" + NL());
             initializations.pop();
         }
     }
 
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
 }
 
 void CModelGenerator::writeSetBoundaryConditions(CodeBuilder& ignore)
@@ -1381,18 +1382,18 @@ void CModelGenerator::writeSetBoundaryConditions(CodeBuilder& ignore)
 
     for (int i = 0; i < mBoundarySpeciesList.size(); i++)
     {
-        if (IsNullOrEmpty(mBoundarySpeciesList[i].formula))
+        if (isNullOrEmpty(mBoundarySpeciesList[i].formula))
         {
-            mSource<<Append("\t" + convertSpeciesToBc(mBoundarySpeciesList[i].name) + " = (double)" +
+            mSource<<append("\t" + convertSpeciesToBc(mBoundarySpeciesList[i].name) + " = (double)" +
                       writeDouble(mBoundarySpeciesList[i].value) + ";" + NL());
         }
         else
         {
-            mSource<<Append("\t\t" + convertSpeciesToBc(mBoundarySpeciesList[i].name) + " = (double)" +
+            mSource<<append("\t\t" + convertSpeciesToBc(mBoundarySpeciesList[i].name) + " = (double)" +
                       mBoundarySpeciesList[i].formula + ";" + NL());
         }
     }
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
 }
 
 
@@ -1403,20 +1404,20 @@ void CModelGenerator::writeSetInitialConditions(CodeBuilder& ignore, const int& 
 
     for (int i = 0; i < mFloatingSpeciesConcentrationList.size(); i++)
     {
-        if (IsNullOrEmpty(mFloatingSpeciesConcentrationList[i].formula))
+        if (isNullOrEmpty(mFloatingSpeciesConcentrationList[i].formula))
         {
-            mSource<<Append("\n\tmd->init_" + convertSpeciesToY(mFloatingSpeciesConcentrationList[i].name) + " = (double)" +
+            mSource<<append("\n\tmd->init_" + convertSpeciesToY(mFloatingSpeciesConcentrationList[i].name) + " = (double)" +
                       writeDouble(mFloatingSpeciesConcentrationList[i].value) + ";");
         }
         else
         {
             string formula = mFloatingSpeciesConcentrationList[i].formula;
-            mSource<<Append("\n\tmd->init_" + convertSpeciesToY(mFloatingSpeciesConcentrationList[i].name) + " = (double) " +
+            mSource<<append("\n\tmd->init_" + convertSpeciesToY(mFloatingSpeciesConcentrationList[i].name) + " = (double) " +
                       formula + ";");
         }
     }
 
-    mSource<<Append("\n}" + NL() + NL());
+    mSource<<append("\n}" + NL() + NL());
 
     // ------------------------------------------------------------------------------
     mHeader.AddFunctionExport("void", "setInitialConditions(ModelData* md)");
@@ -1429,7 +1430,7 @@ void CModelGenerator::writeSetInitialConditions(CodeBuilder& ignore, const int& 
         mSource<<"\n\tmd->amounts[" << i << "] = md->y[" << i << "]*" <<
                   convertCompartmentToC(mFloatingSpeciesConcentrationList[i].compartmentName) << ";" << NL();
     }
-    mSource<<Append("}" + NL() + NL());
+    mSource<<append("}" + NL() + NL());
 }
 
 string CModelGenerator::convertSpeciesToY(const string& speciesName)
@@ -1437,7 +1438,7 @@ string CModelGenerator::convertSpeciesToY(const string& speciesName)
     int index;
     if (mFloatingSpeciesConcentrationList.find(speciesName, index))
     {
-        return "y[" + ToString(index) + "]";
+        return "y[" + toString(index) + "]";
     }
 
     throw new CoreException("Internal Error: Unable to locate species: " + speciesName);
@@ -1448,7 +1449,7 @@ string CModelGenerator::convertSpeciesToBc(const string& speciesName)
     int index;
     if (mBoundarySpeciesList.find(speciesName, index))
     {
-        return "md->bc[" + ToString(index) + "]";
+        return "md->bc[" + toString(index) + "]";
     }
 
     throw CoreException("Internal Error: Unable to locate species: " + speciesName);
@@ -1459,7 +1460,7 @@ string CModelGenerator::convertCompartmentToC(const string& compartmentName)
     int index;
     if (mCompartmentList.find(compartmentName, index))
     {
-        return "md->c[" + ToString(index) + "]";
+        return "md->c[" + toString(index) + "]";
     }
 
     throw CoreException("Internal Error: Unable to locate compartment: " + compartmentName);
@@ -1470,7 +1471,7 @@ string CModelGenerator::convertSymbolToGP(const string& parameterName)
     int index;
     if (mGlobalParameterList.find(parameterName, index))
     {
-        return "md->gp[" + ToString(index) + "]";
+        return "md->gp[" + toString(index) + "]";
     }
       throw CoreException("Internal Error: Unable to locate parameter: " + parameterName);
 }
@@ -1480,39 +1481,39 @@ string CModelGenerator::convertSymbolToC(const string& compartmentName)
     int index;
     if (mCompartmentList.find(compartmentName, index))
     {
-        return "md->c[" + ToString(index) + "]";
+        return "md->c[" + toString(index) + "]";
     }
       throw CoreException("Internal Error: Unable to locate compartment: " + compartmentName);
 }
 
 void CModelGenerator::writeOutSymbolTables(CodeBuilder& ignore)
 {
-    mSource<<Append("void loadSymbolTables(ModelData* md)\n{");
+    mSource<<append("void loadSymbolTables(ModelData* md)\n{");
 
     int nrFuncs = 0;
     for (int i = 0; i < mFloatingSpeciesConcentrationList.size(); i++)
     {
-        mSource<<Format("\n\tmd->variableTable[{0}] = \"{1}\";", i, mFloatingSpeciesConcentrationList[i].name);
+        mSource<<format("\n\tmd->variableTable[{0}] = \"{1}\";", i, mFloatingSpeciesConcentrationList[i].name);
         nrFuncs++;
     }
 
     for (int i = 0; i < mBoundarySpeciesList.size(); i++)
     {
-        mSource<<Format("\n\tmd->boundaryTable[{0}] = \"{1}\";", i, mBoundarySpeciesList[i].name);
+        mSource<<format("\n\tmd->boundaryTable[{0}] = \"{1}\";", i, mBoundarySpeciesList[i].name);
         nrFuncs++;
     }
 
     for (int i = 0; i < mGlobalParameterList.size(); i++)
     {
         string name = mGlobalParameterList[i].name;
-           mSource<<Format("\n\tmd->globalParameterTable[{0}] = \"{1}\";", i, mGlobalParameterList[i].name);
+           mSource<<format("\n\tmd->globalParameterTable[{0}] = \"{1}\";", i, mGlobalParameterList[i].name);
         nrFuncs++;
     }
     if(nrFuncs > 0)
     {
         mSource<<"\n";
     }
-    mSource<<Format("}{0}{0}", NL());
+    mSource<<format("}{0}{0}", NL());
 }
 
 int CModelGenerator::readFloatingSpecies()
@@ -1542,9 +1543,9 @@ int CModelGenerator::readFloatingSpecies()
               }
 
             string compartmentName = mNOM->getNthFloatingSpeciesCompartmentName(j);
-            bool bIsConcentration  = ToBool(oTempList[2]);
-            double dValue = ToDouble(oTempList[1]);
-            if (IsNaN(dValue))
+            bool bIsConcentration  = toBool(oTempList[2]);
+            double dValue = toDouble(oTempList[1]);
+            if (isNaN(dValue))
             {
                   dValue = 0;
             }
@@ -1560,13 +1561,13 @@ int CModelGenerator::readFloatingSpecies()
               mCompartmentList.find(compartmentName, nCompartmentIndex);
 
               double dVolume = mCompartmentList[nCompartmentIndex].value;
-              if (IsNaN(dVolume))
+              if (isNaN(dVolume))
               {
                 dVolume = 1;
               }
 
               stringstream formula;
-              formula<<ToString(dValue,mDoubleFormat)<<"/ md->c["<<nCompartmentIndex<<"]";
+              formula<<toString(dValue,mDoubleFormat)<<"/ md->c["<<nCompartmentIndex<<"]";
 
               symbol = new Symbol(reOrderedList[i],
                   dValue / dVolume,
@@ -1609,9 +1610,9 @@ int CModelGenerator::readBoundarySpecies()
         StringList oTempList     = oBoundarySpecies[i];
         string sName             = oTempList[0];
         string compartmentName     = mNOM->getNthBoundarySpeciesCompartmentName(i);
-        bool bIsConcentration     = ToBool(oTempList[2]);
-        double dValue             = ToDouble(oTempList[1]);
-        if (IsNaN(dValue))
+        bool bIsConcentration     = toBool(oTempList[2]);
+        double dValue             = toDouble(oTempList[1]);
+        if (isNaN(dValue))
         {
             dValue = 0;
         }
@@ -1632,13 +1633,13 @@ int CModelGenerator::readBoundarySpecies()
             }
             else
             {
-                if (IsNaN(dVolume))
+                if (isNaN(dVolume))
                 {
                     dVolume = 1;
                 }
             }
             stringstream formula;
-            formula<<ToString(dValue, mDoubleFormat)<<"/ md->c["<<nCompartmentIndex<<"]";
+            formula<<toString(dValue, mDoubleFormat)<<"/ md->c["<<nCompartmentIndex<<"]";
             symbol = new Symbol(sName,
                                 dValue / dVolume,
                                 compartmentName,
@@ -1689,35 +1690,35 @@ void CModelGenerator::writeInitFunction(CodeBuilder& ignore, CodeBuilder& source
     source.Line("int InitModel(ModelData* md)");
     source.Line("{");
 
-//    source<<"\t"<<Append("InitModelData(md);" , NL());
-    source<<"\t"<<Append("setCompartmentVolumes(md);" , NL());
-    source<<"\t"<<Append("InitializeDelays(md);" , NL());
+//    source<<"\t"<<append("InitModelData(md);" , NL());
+    source<<"\t"<<append("setCompartmentVolumes(md);" , NL());
+    source<<"\t"<<append("InitializeDelays(md);" , NL());
 
     // Declare any eventAssignment delegates
     if (mNumEvents > 0)
     {
         for (int i = 0; i < mNumEvents; i++)
         {
-            string iStr = ToString(i);
-            source<<Append("\tmd->eventAssignments[" + iStr + "] = eventAssignment_" + iStr +";" + NL());
-            source<<Append("\tmd->computeEventAssignments[" + iStr + "] = (TComputeEventAssignmentDelegate) computeEventAssignment_" + iStr + ";" + NL());
-            source<<Append("\tmd->performEventAssignments[" + iStr + "] = (TPerformEventAssignmentDelegate) performEventAssignment_" + iStr + ";" + NL());
+            string iStr = toString(i);
+            source<<append("\tmd->eventAssignments[" + iStr + "] = eventAssignment_" + iStr +";" + NL());
+            source<<append("\tmd->computeEventAssignments[" + iStr + "] = (TComputeEventAssignmentDelegate) computeEventAssignment_" + iStr + ";" + NL());
+            source<<append("\tmd->performEventAssignments[" + iStr + "] = (TPerformEventAssignmentDelegate) performEventAssignment_" + iStr + ";" + NL());
         }
 
-        source<<Append("\tresetEvents(md);" + NL());
+        source<<append("\tresetEvents(md);" + NL());
 
         //Test to call a function
-        source<<Append("\tmd->eventAssignments[0](md);\n");
-        source<<Append(NL());
+        source<<append("\tmd->eventAssignments[0](md);\n");
+        source<<append(NL());
     }
 
     if (mNumModifiableSpeciesReferences > 0)
     {
         for (int i = 0; i < mModifiableSpeciesReferenceList.size(); i++)
         {
-            source<<Append("\t\tmd->sr[" + ToString(i) + "] = " + writeDouble(mModifiableSpeciesReferenceList[i].value) + ";" + NL());
+            source<<append("\t\tmd->sr[" + toString(i) + "] = " + writeDouble(mModifiableSpeciesReferenceList[i].value) + ";" + NL());
         }
-        source<<Append(NL());
+        source<<append(NL());
     }
 
     source.TLine("return 0;");
@@ -1736,9 +1737,9 @@ void CModelGenerator::write_getModelNameFunction(CodeBuilder& ignore, CodeBuilde
 
 bool CModelGenerator::saveSourceCodeToFolder(const string& folder, const string& baseName)
 {
-    string fName         = ExtractFileName(baseName);
-    mHeaderCodeFileName = JoinPath(folder, fName);
-    mHeaderCodeFileName = ChangeFileExtensionTo(mHeaderCodeFileName, ".h");
+    string fName         = getFileName(baseName);
+    mHeaderCodeFileName = joinPath(folder, fName);
+    mHeaderCodeFileName = changeFileExtensionTo(mHeaderCodeFileName, ".h");
 
     ofstream outFile(mHeaderCodeFileName.c_str());
     if(!outFile)
@@ -1750,16 +1751,16 @@ bool CModelGenerator::saveSourceCodeToFolder(const string& folder, const string&
     Log(lDebug3)<<"Wrote header to file: "<<mHeaderCodeFileName;
     outFile.close();
 
-    mSourceCodeFileName = ChangeFileExtensionTo(mHeaderCodeFileName, ".c");
+    mSourceCodeFileName = changeFileExtensionTo(mHeaderCodeFileName, ".c");
     outFile.open(mSourceCodeFileName.c_str());
 
     //We don't know the name of the file until here..
     //Write an include statement to it..
-    vector<string> fNameParts = SplitString(mSourceCodeFileName,"\\");
+    vector<string> fNameParts = splitString(mSourceCodeFileName,"\\");
     string headerFName = fNameParts[fNameParts.size() - 1];
 
-    headerFName = ChangeFileExtensionTo(headerFName, ".h");
-    outFile<<"#include \""<<ExtractFileName(headerFName)<<"\"\n"<<endl;
+    headerFName = changeFileExtensionTo(headerFName, ".h");
+    outFile<<"#include \""<<getFileName(headerFName)<<"\"\n"<<endl;
     outFile<<getSourceCode();
     outFile.close();
     Log(lDebug3)<<"Wrote source code to file: "<<mSourceCodeFileName;
@@ -1792,207 +1793,207 @@ string CModelGenerator::convertUserFunctionExpression(const string& equation)
                 case CodeTypes::tWordToken:
                     if(theToken == "pow")
                     {
-                        mSource<<Append("spf_pow");
+                        mSource<<append("spf_pow");
                     }
                     else if(theToken == "sqrt")
                     {
-                        mSource<<Append("sqrt");
+                        mSource<<append("sqrt");
                       }
                     else if(theToken == "log")
                     {
-                        mSource<<Append("spf_log");
+                        mSource<<append("spf_log");
                     }
                     else if(theToken == "log10")
                     {
-                        mSource<<Append("Log10");
+                        mSource<<append("Log10");
                     }
                     else if(theToken == "floor")
                     {
-                        mSource<<Append("spf_floor");
+                        mSource<<append("spf_floor");
                     }
                     else if(theToken == "ceil")
                     {
-                        mSource<<Append("spf_ceil");
+                        mSource<<append("spf_ceil");
                     }
                     else if(theToken == "factorial")
                     {
-                        mSource<<Append("spf_factorial");
+                        mSource<<append("spf_factorial");
                     }
                     else if(theToken == "exp")
                     {
-                        mSource<<Append("Math.Exp");
+                        mSource<<append("Math.Exp");
                     }
                     else if(theToken == "sin")
                     {
-                        mSource<<Append("sin");
+                        mSource<<append("sin");
                     }
                     else if(theToken == "cos")
                     {
-                        mSource<<Append("cos");
+                        mSource<<append("cos");
                     }
                     else if(theToken == "tan")
                     {
-                        mSource<<Append("tan");
+                        mSource<<append("tan");
                     }
                     else if(theToken == "abs")
                     {
-                        mSource<<Append("spf_abs");
+                        mSource<<append("spf_abs");
                     }
                     else if(theToken == "asin")
                     {
-                        mSource<<Append("asin");
+                        mSource<<append("asin");
                     }
                     else if(theToken == "acos")
                     {
-                        mSource<<Append("acos");
+                        mSource<<append("acos");
                     }
                     else if(theToken == "atan")
                     {
-                        mSource<<Append("atan");
+                        mSource<<append("atan");
                     }
                     else if(theToken == "sec")
                     {
-                        mSource<<Append("MathKGI.Sec");
+                        mSource<<append("MathKGI.Sec");
                     }
                     else if(theToken == "csc")
                     {
-                        mSource<<Append("MathKGI.Csc");
+                        mSource<<append("MathKGI.Csc");
                     }
                     else if(theToken == "cot")
                     {
-                        mSource<<Append("MathKGI.Cot");
+                        mSource<<append("MathKGI.Cot");
                     }
                     else if(theToken == "arcsec")
                     {
-                        mSource<<Append("MathKGI.Asec");
+                        mSource<<append("MathKGI.Asec");
                     }
                     else if(theToken == "arccsc")
                     {
-                        mSource<<Append("MathKGI.Acsc");
+                        mSource<<append("MathKGI.Acsc");
                     }
                     else if(theToken == "arccot")
                     {
-                        mSource<<Append("MathKGI.Acot");
+                        mSource<<append("MathKGI.Acot");
                     }
                     else if(theToken == "sinh")
                     {
-                        mSource<<Append("Math.Sinh");
+                        mSource<<append("Math.Sinh");
                     }
                     else if(theToken == "cosh")
                     {
-                        mSource<<Append("Math.Cosh");
+                        mSource<<append("Math.Cosh");
                     }
                     else if(theToken == "tanh")
                     {
-                        mSource<<Append("Math.Tanh");
+                        mSource<<append("Math.Tanh");
                     }
                     else if(theToken == "arcsinh")
                     {
-                        mSource<<Append("MathKGI.Asinh");
+                        mSource<<append("MathKGI.Asinh");
                     }
                     else if(theToken == "arccosh")
                     {
-                        mSource<<Append("MathKGI.Acosh");
+                        mSource<<append("MathKGI.Acosh");
                     }
                     else if(theToken == "arctanh")
                     {
-                        mSource<<Append("MathKGI.Atanh");
+                        mSource<<append("MathKGI.Atanh");
                     }
                     else if(theToken == "sech")
                     {
-                        mSource<<Append("MathKGI.Sech");
+                        mSource<<append("MathKGI.Sech");
                     }
                     else if(theToken == "csch")
                     {
-                        mSource<<Append("MathKGI.Csch");
+                        mSource<<append("MathKGI.Csch");
                     }
                     else if(theToken == "coth")
                     {
-                        mSource<<Append("MathKGI.Coth");
+                        mSource<<append("MathKGI.Coth");
                     }
                     else if(theToken == "arcsech")
                     {
-                        mSource<<Append("MathKGI.Asech");
+                        mSource<<append("MathKGI.Asech");
                     }
                     else if(theToken == "arccsch")
                     {
-                        mSource<<Append("MathKGI.Acsch");
+                        mSource<<append("MathKGI.Acsch");
                     }
                     else if(theToken == "arccoth")
                     {
-                               mSource<<Append("MathKGI.Acoth");
+                               mSource<<append("MathKGI.Acoth");
                     }
                     else if(theToken == "pi")
                     {
-                        mSource<<Append("PI");
+                        mSource<<append("PI");
                     }
                     else if(theToken == "exponentiale")
                     {
-                        mSource<<Append("Math.E");
+                        mSource<<append("Math.E");
                     }
                     else if(theToken == "avogadro")
                     {
-                        mSource<<Append("6.02214179e23");
+                        mSource<<append("6.02214179e23");
                     }
                     else if(theToken == "true")
                     {
-                        mSource<<Append("1.0");
+                        mSource<<append("1.0");
                     }
                     else if(theToken == "false")
                     {
-                        mSource<<Append("0.0");
+                        mSource<<append("0.0");
                     }
                     else if(theToken == "gt")
                     {
-                        mSource<<Append("spf_gt");
+                        mSource<<append("spf_gt");
                     }
                     else if(theToken == "lt")
                     {
-                        mSource<<Append("spf_lt");
+                        mSource<<append("spf_lt");
                     }
                     else if(theToken == "eq")
                     {
-                        mSource<<Append("spf_eq");
+                        mSource<<append("spf_eq");
                     }
                     else if(theToken == "neq")
                     {
-                        mSource<<Append("spf_neq");
+                        mSource<<append("spf_neq");
                     }
                     else if(theToken == "geq")
                     {
-                        mSource<<Append("spf_geq");
+                        mSource<<append("spf_geq");
                     }
                     else if(theToken == "leq")
                     {
-                        mSource<<Append("spf_leq");
+                        mSource<<append("spf_leq");
                     }
                     else if(theToken == "and")
                     {
-                        mSource<<Append("supportFunction._and");
+                        mSource<<append("supportFunction._and");
                     }
                     else if(theToken == "or")
                     {
-                        mSource<<Append("supportFunction._or");
+                        mSource<<append("supportFunction._or");
                     }
                     else if(theToken == "not")
                     {
-                        mSource<<Append("supportFunction._not");
+                        mSource<<append("supportFunction._not");
                     }
                     else if(theToken == "xor")
                     {
-                        mSource<<Append("supportFunction._xor");
+                        mSource<<append("supportFunction._xor");
                     }
                     else if(theToken == "root")
                     {
-                        mSource<<Append("spf_root");
+                        mSource<<append("spf_root");
                     }
                     else if (theToken == "squarewave")
                     {
-                        mSource<<Append("spf_squarewave");
+                        mSource<<append("spf_squarewave");
                     }
                     else if(theToken == "piecewise")
                     {
-                        mSource<<Append("spf_piecewise");
+                        mSource<<append("spf_piecewise");
                     }
                     else if (!mFunctionParameters.Contains(s.tokenString))
                     {
@@ -2000,76 +2001,76 @@ string CModelGenerator::convertUserFunctionExpression(const string& equation)
                     }
                     else
                     {
-                        mSource<<Append(s.tokenString);
+                        mSource<<append(s.tokenString);
                     }
 
                 break; //Word token
 
                    case CodeTypes::tDoubleToken:
-                       mSource<<Append(writeDouble(s.tokenDouble));
+                       mSource<<append(writeDouble(s.tokenDouble));
                        break;
                    case CodeTypes::tIntToken:
-                    mSource<<Append((int) s.tokenInteger);
+                    mSource<<append((int) s.tokenInteger);
                        break;
                    case CodeTypes::tPlusToken:
-                   mSource<<Append("+");
+                   mSource<<append("+");
                    break;
                    case CodeTypes::tMinusToken:
-                   mSource<<Append("-");
+                   mSource<<append("-");
                    break;
                    case CodeTypes::tDivToken:
-                   mSource<<Append("/");
+                   mSource<<append("/");
                    break;
                    case CodeTypes::tMultToken:
-                   mSource<<Append(mFixAmountCompartments);
+                   mSource<<append(mFixAmountCompartments);
                    break;
                    case CodeTypes::tPowerToken:
-                   mSource<<Append("^");
+                   mSource<<append("^");
                    break;
                    case CodeTypes::tLParenToken:
-                   mSource<<Append("(");
+                   mSource<<append("(");
                    break;
                    case CodeTypes::tRParenToken:
-                   mSource<<Append(")");
+                   mSource<<append(")");
                    break;
                    case CodeTypes::tCommaToken:
-                   mSource<<Append(",");
+                   mSource<<append(",");
                    break;
                    case CodeTypes::tEqualsToken:
-                   mSource<<Append(" = ");
+                   mSource<<append(" = ");
                    break;
                    case CodeTypes::tTimeWord1:
-                   mSource<<Append("time");
+                   mSource<<append("time");
                    break;
                    case CodeTypes::tTimeWord2:
-                   mSource<<Append("time");
+                   mSource<<append("time");
                    break;
                    case CodeTypes::tTimeWord3:
-                   mSource<<Append("time");
+                   mSource<<append("time");
                    break;
                    case CodeTypes::tAndToken:
-                   mSource<<Append("spf_and");
+                   mSource<<append("spf_and");
                    break;
                    case CodeTypes::tOrToken:
-                   mSource<<Append("spf_or");
+                   mSource<<append("spf_or");
                    break;
                    case CodeTypes::tNotToken:
-                   mSource<<Append("spf_not");
+                   mSource<<append("spf_not");
                    break;
                    case CodeTypes::tLessThanToken:
-                   mSource<<Append("spf_lt");
+                   mSource<<append("spf_lt");
                    break;
                    case CodeTypes::tLessThanOrEqualToken:
-                   mSource<<Append("spf_leq");
+                   mSource<<append("spf_leq");
                    break;
                    case CodeTypes::tMoreThanOrEqualToken:
-                   mSource<<Append("spf_geq");
+                   mSource<<append("spf_geq");
                    break;
                    case CodeTypes::tMoreThanToken:
-                   mSource<<Append("spf_gt");
+                   mSource<<append("spf_gt");
                    break;
                    case CodeTypes::tXorToken:
-                   mSource<<Append("spf_xor");
+                   mSource<<append("spf_xor");
                    break;
                    default:
                    stringstream msg;
@@ -2092,221 +2093,221 @@ void CModelGenerator::substituteEquation(const string& reactionName, Scanner& s,
     string theToken(s.tokenString);
     if(theToken == "pow")
     {
-        mSource<<Append("spf_pow");
+        mSource<<append("spf_pow");
     }
     else if(theToken == "sqrt")
     {
-        mSource<<Append("sqrt");
+        mSource<<append("sqrt");
     }
     else if(theToken == "log")
     {
-        mSource<<Append("spf_log");
+        mSource<<append("spf_log");
     }
     else if(theToken == "floor")
     {
-        mSource<<Append("spf_floor");
+        mSource<<append("spf_floor");
     }
     else if(theToken == "ceil")
     {
-        mSource<<Append("spf_ceil");
+        mSource<<append("spf_ceil");
     }
     else if(theToken == "factorial")
     {
-        mSource<<Append("spf_factorial");
+        mSource<<append("spf_factorial");
     }
     else if(theToken == "log10")
     {
-        mSource<<Append("spf_log10");
+        mSource<<append("spf_log10");
     }
     else if(theToken == "exp")
     {
-        mSource<<Append("spf_exp");
+        mSource<<append("spf_exp");
     }
     else if(theToken == "abs")
     {
-        mSource<<Append("spf_abs");
+        mSource<<append("spf_abs");
     }
     else if(theToken == "sin")
     {
-        mSource<<Append("spf_sin");
+        mSource<<append("spf_sin");
     }
     else if(theToken == "cos")
     {
-        mSource<<Append("cos");
+        mSource<<append("cos");
     }
     else if(theToken == "tan")
     {
-        mSource<<Append("tan");
+        mSource<<append("tan");
     }
     else if(theToken == "asin")
     {
-        mSource<<Append("asin");
+        mSource<<append("asin");
     }
     else if(theToken == "acos")
     {
-        mSource<<Append("acos");
+        mSource<<append("acos");
     }
     else if(theToken == "atan")
     {
-        mSource<<Append("atan");
+        mSource<<append("atan");
     }
     else if(theToken == "sec")
     {
-        mSource<<Append("sec");
+        mSource<<append("sec");
     }
     else if(theToken == "csc")
     {
-        mSource<<Append("csc");
+        mSource<<append("csc");
     }
     else if(theToken == "cot")
     {
-        mSource<<Append("cot");
+        mSource<<append("cot");
     }
     else if(theToken == "arcsec")
     {
-        mSource<<Append("asec");
+        mSource<<append("asec");
     }
     else if(theToken == "arccsc")
     {
-        mSource<<Append("arccsc");
+        mSource<<append("arccsc");
     }
     else if(theToken == "arccot")
     {
-        mSource<<Append("arccot");
+        mSource<<append("arccot");
     }
     else if(theToken == "sinh")
     {
-        mSource<<Append("sinh");
+        mSource<<append("sinh");
     }
     else if(theToken == "cosh")
     {
-        mSource<<Append("cosh");
+        mSource<<append("cosh");
     }
     else if(theToken == "tanh")
     {
-        mSource<<Append("tanh");
+        mSource<<append("tanh");
     }
     else if(theToken == "arcsinh")
     {
-        mSource<<Append("arcsinh");
+        mSource<<append("arcsinh");
     }
     else if(theToken == "arccosh")
     {
-        mSource<<Append("arccosh");
+        mSource<<append("arccosh");
     }
     else if(theToken == "arctanh")
     {
-        mSource<<Append("arctanh");
+        mSource<<append("arctanh");
     }
     else if(theToken == "sech")
     {
-        mSource<<Append("sech");
+        mSource<<append("sech");
     }
     else if(theToken == "csch")
     {
-        mSource<<Append("csch");
+        mSource<<append("csch");
     }
     else if(theToken == "coth")
     {
-        mSource<<Append("coth");
+        mSource<<append("coth");
     }
     else if(theToken == "arcsech")
     {
-        mSource<<Append("arcsech");
+        mSource<<append("arcsech");
     }
     else if(theToken == "arccsch")
     {
-        mSource<<Append("arccsch");
+        mSource<<append("arccsch");
     }
     else if(theToken == "arccoth")
     {
-        mSource<<Append("arccoth");
+        mSource<<append("arccoth");
     }
     else if(theToken == "pi")
     {
-        mSource<<Append("PI");
+        mSource<<append("PI");
     }
     else if(theToken == "avogadro")
     {
-        mSource<<Append("6.02214179e23");
+        mSource<<append("6.02214179e23");
     }
     else if(theToken == "exponentiale")
     {
-        mSource<<Append("E");
+        mSource<<append("E");
     }
     else if(theToken == "true")
     {
-        //mSource<<Append("true");
-        mSource<<Append("1.0");
+        //mSource<<append("true");
+        mSource<<append("1.0");
     }
     else if(theToken == "false")
     {
-        //mSource<<Append("false");
-        mSource<<Append("0.0");
+        //mSource<<append("false");
+        mSource<<append("0.0");
     }
     else if(theToken == "NaN")
     {
-        mSource<<Append("NaN");
+        mSource<<append("NaN");
     }
     else if(theToken == "INF")
     {
-        mSource<<Append("INF");
+        mSource<<append("INF");
     }
     else if(theToken == "geq")
     {
-        mSource<<Append("spf_geq");
+        mSource<<append("spf_geq");
     }
     else if(theToken == "leq")
     {
-        mSource<<Append("spf_leq");
+        mSource<<append("spf_leq");
     }
     else if(theToken == "gt")
     {
-        mSource<<Append("spf_gt");
+        mSource<<append("spf_gt");
     }
     else if(theToken == "lt")
     {
-        mSource<<Append("spf_lt");
+        mSource<<append("spf_lt");
     }
     else if(theToken == "eq")
     {
-        mSource<<Append("spf_eq");
+        mSource<<append("spf_eq");
     }
     else if(theToken == "neq")
     {
-        mSource<<Append("spf_neq");
+        mSource<<append("spf_neq");
     }
     else if(theToken == "and")
     {
-        mSource<<Append("spf_and");
+        mSource<<append("spf_and");
     }
     else if(theToken == "or")
     {
-        mSource<<Append("spf_or");
+        mSource<<append("spf_or");
     }
     else if(theToken == "not")
     {
-        mSource<<Append("spf_not");
+        mSource<<append("spf_not");
     }
     else if(theToken == "xor")
     {
-        mSource<<Append("spf_xor");
+        mSource<<append("spf_xor");
     }
     else if(theToken == "root")
     {
-        mSource<<Append("spf_root");
+        mSource<<append("spf_root");
     }
     else if(theToken == "squarewave")
     {
-        mSource<<Append("spf_squarewave");
+        mSource<<append("spf_squarewave");
     }
     else if(theToken == "piecewise")
     {
-        mSource<<Append("spf_piecewise");
+        mSource<<append("spf_piecewise");
     }
     else if(theToken == "delay")
     {
-        mSource<<Append("spf_delay");
+        mSource<<append("spf_delay");
         Log(lWarning)<<"RoadRunner does not yet support delay differential equations in SBML, they will be ignored (i.e. treated as delay = 0).";
     }
     else
@@ -2318,14 +2319,14 @@ void CModelGenerator::substituteEquation(const string& reactionName, Scanner& s,
             int nParamIndex = 0;
             if (mLocalParameterList[index].find(s.tokenString, nParamIndex))
             {
-                mSource<<Append("_lp[" + ToString(index) + "][" + ToString(nParamIndex) + "]");
+                mSource<<append("_lp[" + toString(index) + "][" + toString(nParamIndex) + "]");
                 bReplaced = true;
             }
         }
 
         if (mBoundarySpeciesList.find(s.tokenString, index))
         {
-            mSource<<Append("_bc[" + ToString(index) + "]");
+            mSource<<append("_bc[" + toString(index) + "]");
             bReplaced = true;
         }
         if (!bReplaced &&
@@ -2342,11 +2343,11 @@ void CModelGenerator::substituteWords(const string& reactionName, bool bFixAmoun
     int index;
     if (mGlobalParameterList.find(s.tokenString, index))
     {
-        mSource<<Format("md->gp[{0}]", index);
+        mSource<<format("md->gp[{0}]", index);
     }
     else if (mBoundarySpeciesList.find(s.tokenString, index))
     {
-        mSource<<Format("md->bc[{0}]", index);
+        mSource<<format("md->bc[{0}]", index);
 
         Symbol symbol = mBoundarySpeciesList[index];
         if (symbol.hasOnlySubstance)
@@ -2356,7 +2357,7 @@ void CModelGenerator::substituteWords(const string& reactionName, bool bFixAmoun
             int nCompIndex = 0;
             if (mCompartmentList.find(symbol.compartmentName, nCompIndex))
             {
-                mSource<<Format("{0}_c[{1}]", mFixAmountCompartments, nCompIndex);
+                mSource<<format("{0}_c[{1}]", mFixAmountCompartments, nCompIndex);
             }
         }
     }
@@ -2365,28 +2366,28 @@ void CModelGenerator::substituteWords(const string& reactionName, bool bFixAmoun
         Symbol floating1 = mFloatingSpeciesConcentrationList[index];
         if (floating1.hasOnlySubstance)
         {
-            mSource<<Format("md->amounts[{0}]", index);
+            mSource<<format("md->amounts[{0}]", index);
         }
         else
         {
-            mSource<<Format("md->y[{0}]", index);
+            mSource<<format("md->y[{0}]", index);
         }
     }
     else if (mCompartmentList.find(s.tokenString, index))
     {
-        mSource<<Format("md->c[{0}]", index);
+        mSource<<format("md->c[{0}]", index);
     }
     else if (mFunctionNames.Contains(s.tokenString))
     {
-        mSource<<Format("{0} ", s.tokenString);
+        mSource<<format("{0} ", s.tokenString);
     }
     else if (mModifiableSpeciesReferenceList.find(s.tokenString, index))
     {
-        mSource<<Format("md->sr[{0}]", index);
+        mSource<<format("md->sr[{0}]", index);
     }
     else if (mReactionList.find(s.tokenString, index))
     {
-        mSource<<Format("md->rates[{0}]", index);
+        mSource<<format("md->rates[{0}]", index);
     }
     else
     {
@@ -2407,75 +2408,75 @@ void CModelGenerator::substituteToken(const string& reactionName, bool bFixAmoun
             break;
 
         case CodeTypes::tDoubleToken:
-            mSource<<Append("(double) " + writeDouble(s.tokenDouble));
+            mSource<<append("(double) " + writeDouble(s.tokenDouble));
             break;
         case CodeTypes::tIntToken:
-            mSource<<Append("(double)" + writeDouble((double)s.tokenInteger));
+            mSource<<append("(double)" + writeDouble((double)s.tokenInteger));
             break;
         case CodeTypes::tPlusToken:
-            mSource<<Format("+{0}\t", NL());
+            mSource<<format("+{0}\t", NL());
             break;
         case CodeTypes::tMinusToken:
-            mSource<<Format("-{0}\t", NL());
+            mSource<<format("-{0}\t", NL());
             break;
         case CodeTypes::tDivToken:
-            mSource<<Format("/{0}\t", NL());
+            mSource<<format("/{0}\t", NL());
             break;
         case CodeTypes::tMultToken:
-            mSource<<Format("*{0}\t", NL());
+            mSource<<format("*{0}\t", NL());
             break;
         case CodeTypes::tPowerToken:
-            mSource<<Format("^{0}\t", NL());
+            mSource<<format("^{0}\t", NL());
             break;
         case CodeTypes::tLParenToken:
-            mSource<<Append("(");
+            mSource<<append("(");
             break;
         case CodeTypes::tRParenToken:
-            mSource<<Format("){0}\t", NL());
+            mSource<<format("){0}\t", NL());
             break;
         case CodeTypes::tCommaToken:
-            mSource<<Append(",");
+            mSource<<append(",");
             break;
         case CodeTypes::tEqualsToken:
-            mSource<<Format(" = {0}\t", NL());
+            mSource<<format(" = {0}\t", NL());
             break;
         case CodeTypes::tTimeWord1:
-            mSource<<Append("md->time");
+            mSource<<append("md->time");
             break;
         case CodeTypes::tTimeWord2:
-            mSource<<Append("md->time");
+            mSource<<append("md->time");
             break;
         case CodeTypes::tTimeWord3:
-            mSource<<Append("md->time");
+            mSource<<append("md->time");
             break;
         case CodeTypes::tAndToken:
-            mSource<<Format("{0}spf_and", NL());
+            mSource<<format("{0}spf_and", NL());
             break;
         case CodeTypes::tOrToken:
-            mSource<<Format("{0}spf_or", NL());
+            mSource<<format("{0}spf_or", NL());
             break;
         case CodeTypes::tNotToken:
-            mSource<<Format("{0}spf_not", NL());
+            mSource<<format("{0}spf_not", NL());
             break;
         case CodeTypes::tLessThanToken:
-            mSource<<Format("{0}spf_lt", NL());
+            mSource<<format("{0}spf_lt", NL());
             break;
         case CodeTypes::tLessThanOrEqualToken:
-            mSource<<Format("{0}spf_leq", NL());
+            mSource<<format("{0}spf_leq", NL());
             break;
         case CodeTypes::tMoreThanOrEqualToken:
-            mSource<<Format("{0}spf_geq", NL());
+            mSource<<format("{0}spf_geq", NL());
             break;
         case CodeTypes::tMoreThanToken:
-            mSource<<Format("{0}spf_gt", NL());
+            mSource<<format("{0}spf_gt", NL());
             break;
         case CodeTypes::tXorToken:
-            mSource<<Format("{0}spf_xor", NL());
+            mSource<<format("{0}spf_xor", NL());
             break;
         default:
         string aToken = s.tokenToString(s.token());
         Exception ae = Exception(
-                 Format("Unknown token in substituteTerms: {0}", aToken,
+                 format("Unknown token in substituteTerms: {0}", aToken,
                  "Exception raised in Module:roadRunner, Method:substituteTerms"));
          throw ae;
     }
@@ -2588,7 +2589,7 @@ ExecutableModel* CModelGenerator::createModel()
 
 bool CModelGenerator::setTemporaryDirectory(const string& path)
 {
-    if(FolderExists(path))
+    if(folderExists(path))
     {
         Log(lDebug)<<"Setting temp file folder to "<< path;
         mCompiler.setOutputPath(path);
@@ -2698,7 +2699,7 @@ ExecutableModel *CModelGenerator::createModel(const string& sbml, LibStructural 
     try
     {
         //Can't have multiple threads compiling to the same dll at the same time..
-        if(!FileExists(mModelLib->getFullFileName()) || forceReCompile == true)
+        if(!fileExists(mModelLib->getFullFileName()) || forceReCompile == true)
         {
             if(!compileModel())
             {

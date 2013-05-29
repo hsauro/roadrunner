@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include "rrLogger.h"
+#include "rrException.h"
 #include "rrUtils.h"
 #include "Args.h"
 #include "rrc_api.h"
@@ -10,7 +11,6 @@
 
 using namespace std;
 using namespace rr;
-//using namespace rrc;
 
 string 	gTempFolder		   		= "";
 string 	gRRInstallFolder 		= "";
@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
             setLogLevel("lInfo");
         }
         // set full model path (read from cmd line)
-        gTSModelsPath = JoinPath(JoinPath(gTSModelsPath, "cases"), "semantic");
+        gTSModelsPath = joinPath(joinPath(gTSModelsPath, "cases"), "semantic");
         Log(lInfo)<<"Testing model: "<<args.ModelNumber;
 
         RunTest("l2v4", args.ModelNumber);
@@ -71,7 +71,7 @@ void ProcessCommandLineArguments(int argc, char* argv[], Args& args)
     {
         switch (c)
         {
-            case ('i'): args.ModelNumber                     		= ToInt(rrOptArg);                 break;
+            case ('i'): args.ModelNumber                     		= toInt(rrOptArg);                 break;
             case ('m'): args.SBMLModelsFilePath                     = rrOptArg;                       break;
 			case ('t'): args.TempDataFolder        		            = rrOptArg;                       break;
 			case ('v'): args.EnableLogging        		            = true;                       break;
@@ -92,7 +92,7 @@ void ProcessCommandLineArguments(int argc, char* argv[], Args& args)
     if(argc < 2)
     {
         cout<<Usage(argv[0])<<endl;
-       	rr::Pause();
+       	rr::pause();
         cout<<"\n";
         exit(0);
     }
@@ -107,11 +107,11 @@ void ProcessCommandLineArguments(int argc, char* argv[], Args& args)
 #pragma comment(lib, "rrc_api.lib")
 //#endif
 
-//#if defined(STATIC_RR)
+#if defined(STATIC_RR)
 	#pragma comment(lib, "roadrunner-static.lib")
-//#else
-//	#pragma comment(lib, "roadrunner.lib")
-//#endif
+#else
+	#pragma comment(lib, "roadrunner.lib")
+#endif
 
 #pragma comment(lib, "sundials_cvode")
 #pragma comment(lib, "sundials_nvecserial")

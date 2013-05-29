@@ -41,7 +41,7 @@ mDLL(dll)
 
 CompiledExecutableModel::~CompiledExecutableModel()
 {
-    cout << "in " << __FUNC__ << "\n";
+    Log(lDebug3) << "in " << __FUNC__ << "\n";
     // only free buffers, mData is stack allocated.
     freeModelDataBuffers(mData);
     delete [] mDummyDoubleArray;
@@ -267,7 +267,7 @@ vector<double> CompiledExecutableModel::getCurrentValues()
     }
 
     // allocated in C, free'd here
-    free(values);
+    //free(values);
 
     return vals;
 }
@@ -353,7 +353,7 @@ void CompiledExecutableModel::assignRates(vector<double>& _rates)
         return;
     }
 
-    double* local_rates = CreateVector(_rates);
+    double* local_rates = createVector(_rates);
 
     cAssignRates_b(&mData, local_rates);
     delete [] local_rates;
@@ -412,7 +412,7 @@ void CompiledExecutableModel::updateDependentSpeciesValues(double* y_vec)
 
 void CompiledExecutableModel::computeRules(vector<double>& arr)
 {
-    double* cArr = CreateVector(arr);
+    double* cArr = createVector(arr);
     computeRules(cArr, arr.size());
     delete [] cArr;
 
@@ -458,7 +458,7 @@ void CompiledExecutableModel::evalModel(const double& timein, const vector<doubl
         return;
     }
 
-    double *oAmounts = CreateVector(y);
+    double *oAmounts = createVector(y);
     cevalModel(&mData, timein, oAmounts);
     delete [] oAmounts;
 }
@@ -470,7 +470,7 @@ void CompiledExecutableModel::evalEvents(const double& timeIn, const vector<doub
         Log(lError)<<"Tried to call NULL function in "<<__FUNCTION__;
         return;
     }
-    double *oAmounts = CreateVector(y);
+    double *oAmounts = createVector(y);
     cevalEvents(&mData, timeIn, oAmounts);
     delete [] oAmounts;
 }
@@ -577,7 +577,7 @@ StringList CompiledExecutableModel::getCompartmentNames()
     StringList tmp;
     for (u_int i = 0; i < mCG.mCompartmentList.size(); i++)
     {
-        tmp.Add(mCG.mCompartmentList[i].name);
+        tmp.add(mCG.mCompartmentList[i].name);
     }
     return tmp;
 }
@@ -587,7 +587,7 @@ StringList CompiledExecutableModel::getConservationNames()
     StringList tmp; // = new ArrayList();
     for (int i = 0; i < mCG.mConservationList.Count(); i++)
     {
-        tmp.Add(mCG.mConservationList[i].name);
+        tmp.add(mCG.mConservationList[i].name);
     }
     return tmp;
 }
@@ -597,12 +597,12 @@ StringList CompiledExecutableModel::getGlobalParameterNames()
     StringList tmp;
     for (int i = 0; i < mCG.mGlobalParameterList.size(); i++)
     {
-        tmp.Add(mCG.mGlobalParameterList[i].name);
+        tmp.add(mCG.mGlobalParameterList[i].name);
     }
 
     for (int i = 0; i < mCG.mConservationList.Count(); i++)
     {
-        tmp.Add(mCG.mConservationList[i].name);
+        tmp.add(mCG.mConservationList[i].name);
     }
 
     return tmp;
@@ -613,7 +613,7 @@ StringList CompiledExecutableModel::getReactionNames()
     StringList tmp;
     for (int i = 0; i < mCG.mReactionList.size(); i++)
     {
-        tmp.Add(mCG.mReactionList[i].name);
+        tmp.add(mCG.mReactionList[i].name);
     }
     return tmp;
 }
@@ -623,7 +623,7 @@ StringList CompiledExecutableModel::getFloatingSpeciesConcentrationNames()
     StringList tmp;
     for (int i = 0; i < mCG.mFloatingSpeciesConcentrationList.size(); i++)
     {
-        tmp.Add(mCG.mFloatingSpeciesConcentrationList[i].name);
+        tmp.add(mCG.mFloatingSpeciesConcentrationList[i].name);
     }
     return tmp;
 }
@@ -633,7 +633,7 @@ StringList CompiledExecutableModel::getBoundarySpeciesNames()
     StringList tmp;
     for (int i = 0; i < mCG.mBoundarySpeciesList.size(); i++)
     {
-        tmp.Add(mCG.mBoundarySpeciesList[i].name);
+        tmp.add(mCG.mBoundarySpeciesList[i].name);
     }
     return tmp;
 }

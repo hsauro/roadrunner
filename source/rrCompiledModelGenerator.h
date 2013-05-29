@@ -19,10 +19,11 @@ namespace rr {
  * Both compiled model generators (C and CSharp) share a lot of functionality,
  * so implement that here.
  */
-class CompiledModelGenerator : public ModelGenerator {
-public:
-    CompiledModelGenerator();
-    virtual ~CompiledModelGenerator();
+class RR_DECLSPEC CompiledModelGenerator : public ModelGenerator
+{
+	public:
+    								CompiledModelGenerator();
+    	virtual 				   ~CompiledModelGenerator();
 };
 
 } /* namespace rr */

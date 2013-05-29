@@ -7,6 +7,7 @@
 #include "rrModelData.h"
 #include "rrNOMSupport.h"
 #include "rr-libstruct/lsLibStructural.h"
+
 namespace rr
 {
 using namespace ls;
@@ -14,19 +15,19 @@ using Poco::SharedLibrary;
 class CGenerator;
 class CvodeInterface;
 
-typedef void    (callConv *c_void_MDS)(ModelData*);//MDS stands for ModelDataStructure
-typedef int     (callConv *c_int_MDS)(ModelData*);
-typedef int     (callConv *c_int_MDS_int)(ModelData*, int);
-typedef char*   (callConv *c_charStar_MDS)(ModelData*);
-typedef void    (callConv *c_void_MDS_doubleStar)(ModelData*, double*);
-typedef double  (callConv *c_double_MDS_int)(ModelData*, int);
-typedef double* (callConv *c_doubleStar_MDS)(ModelData*);
-typedef void    (callConv *c_void_MDS_double_doubleStar)(ModelData*, double, double*);
-typedef void    (callConv *c_void_MDS_int_double)(ModelData*, int, double);
+typedef void    (rrCallConv *c_void_MDS)(ModelData*);//MDS stands for ModelDataStructure
+typedef int     (rrCallConv *c_int_MDS)(ModelData*);
+typedef int     (rrCallConv *c_int_MDS_int)(ModelData*, int);
+typedef char*   (rrCallConv *c_charStar_MDS)(ModelData*);
+typedef void    (rrCallConv *c_void_MDS_doubleStar)(ModelData*, double*);
+typedef double  (rrCallConv *c_double_MDS_int)(ModelData*, int);
+typedef double* (rrCallConv *c_doubleStar_MDS)(ModelData*);
+typedef void    (rrCallConv *c_void_MDS_double_doubleStar)(ModelData*, double, double*);
+typedef void    (rrCallConv *c_void_MDS_int_double)(ModelData*, int, double);
 
 
-typedef TComputeEventAssignmentDelegate* (callConv *c_TComputeEventAssignmentDelegateStar)();
-typedef TEventDelayDelegate* (callConv *c_GetEventDelayDelegatesStar)();
+typedef TComputeEventAssignmentDelegate* (rrCallConv *c_TComputeEventAssignmentDelegateStar)();
+typedef TEventDelayDelegate* (rrCallConv *c_GetEventDelayDelegatesStar)();
 
 /**
  * Both the CModelGenerator and the CSharpModelGenerator use the same
@@ -36,9 +37,10 @@ typedef TEventDelayDelegate* (callConv *c_GetEventDelayDelegatesStar)();
  */
 class RR_DECLSPEC CompiledExecutableModel : public ExecutableModel, public rrObject
 {
+
 public:
     CompiledExecutableModel(CModelGenerator& generator, ModelSharedLibrary* dll);
-    virtual                                         ~CompiledExecutableModel();
+    virtual                                        ~CompiledExecutableModel();
 
     virtual string                                  getModelName();
     virtual void                                    assignCVodeInterface(CvodeInterface* cvodeI);
@@ -90,13 +92,13 @@ public:
     virtual void                                    initializeRateRuleSymbols();
     virtual string                                  getInfo();
 
-    virtual SymbolList                              &getReactions();
-    virtual SymbolList                              &getGlobalParameters();
-    virtual SymbolList                              &getBoundarySpecies();
-    virtual SymbolList                              &getCompartments();
-    virtual SymbolList                              &getConservations();
-    virtual SymbolList                              &getFloatingSpeciesAmounts();
-    virtual SymbolList                              &getFloatingSpeciesConcentrations();
+    virtual SymbolList&                             getReactions();
+    virtual SymbolList&                             getGlobalParameters();
+    virtual SymbolList&                             getBoundarySpecies();
+    virtual SymbolList&                             getCompartments();
+    virtual SymbolList&                             getConservations();
+    virtual SymbolList&                             getFloatingSpeciesAmounts();
+    virtual SymbolList&                             getFloatingSpeciesConcentrations();
 
     virtual StringList                              getCompartmentNames();
     virtual StringList                              getConservationNames();
@@ -116,33 +118,31 @@ private:
      * setup the function pointer variables to point to the C functions
      * in the loaded shared library.
      */
-    virtual bool setupDLLFunctions();
+    virtual bool 						setupDLLFunctions();
 
     //This structure holds data generated/used in the shared model lib..
     //some of it could be made global in the dll later on, like modelName..
-    int mDummyInt;
-    int mDummyDouble;
-    double* mDummyDoubleArray;
+    int 								mDummyInt;
+    int									mDummyDouble;
+    double* 							mDummyDoubleArray;
 
     /**
      * the data that is exchanged with the loaded shared lib,
      * and all sorts of other routines such as CVODE.
      */
-    ModelData mData;
-
-    CvodeInterface* mCvodeInterface;
-
-    CModelGenerator& mCG;
+    ModelData 							mData;
+    CvodeInterface* 					mCvodeInterface;
+    CModelGenerator& 					mCG;
 
     /**
      * Reference to libstruct library
      */
-    LibStructural& mLibStruct;
+    LibStructural& 						mLibStruct;
 
     /**
      * Object that provide some wrappers and new "NOM" functions.
      */
-    NOMSupport& mNOM;
+    NOMSupport& 						mNOM;
 
     /**
      * If all functions are found properly in the dll, this one is true

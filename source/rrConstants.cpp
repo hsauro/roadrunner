@@ -4,7 +4,6 @@
 #pragma hdrstop
 #include "rrStringUtils.h"
 #include "rrConstants.h"
-#include <stdlib.h>
 
 //---------------------------------------------------------------------------
 namespace rr
@@ -18,9 +17,10 @@ const char* 		gDoubleFormat 	            = "%f";
 const char* 		gIntFormat  	            = "%d";;
 
 const string    	gEmptyString 				= "";
+const string    	gNoneString 				= "<none>";
 
-//Observe, the following functions are executed BEFORE any main..
-const string		gDefaultSupportCodeFolder 	= JoinPath("..", "rr_support");
+//Observe, the following function, joinPath, is executed BEFORE any main..
+const string		gDefaultSupportCodeFolder 	= joinPath("..", "rr_support");
 const string		gDefaultTempFolder 			= ".";
 
 const int 			gMaxPath					= 512;
@@ -32,7 +32,7 @@ const string		gEmptyModelMessage 			= "A model needs to be loaded before one can
 
 
 #if defined(_WIN32) || defined(__CODEGEARC__)
-    const string		gDefaultCompiler 			= JoinPath("..", "compilers", "tcc", "tcc.exe");
+    const string		gDefaultCompiler 			= joinPath("..", "compilers", "tcc", "tcc.exe");
     const char       	gPathSeparator      = '\\';
     const string		gExeSuffix          = ".exe";
 #elif defined(__unix__) || defined(__APPLE__)
