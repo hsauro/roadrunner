@@ -48,10 +48,22 @@
 \pagenumbering{arabic}
 \include{intro}
 
-\section{The Software}
-\subsection{Core Architecture}
-\subsubsection{Block diagrams}
-\subsubsection{Building blocks}
+\chapter{The Software}
+\emph{A simulation environment for computer models \\
+	representing chemical and biological processes}
+
+\section{Core Architecture}
+The Roadrunner architecture aims at providing the end user with a concise and well defined API for solving problems in the semantic domain of Systems Biology and Chemistry. \\
+In a few words, Roadrunner reads a theoretical model, with parameters on input, propagates the model in time, producing data simulating how the system evolves with time (Fig 1).
+\\
+RoadRunner do provide the user with many specific functions returning specifics of a currently loaded model, such as number of species, number of reactions etc...
+   
+\subsection{Building blocks}
+RoadRunner's core is written in C++, and uses various object oriented concepts such as classes, inheritance and runtime type information for its execution. The software core do consist of about 100 C++ classes. Only a few, the important one will be discussed here. \\
+The main class is called RoadRunner and is found in the the C++ header file named rrRoadRunner.h.\\ RoadRunner is a monolithic class that is the entry point for almost all RoadRunner activity and functionality. As such, it has many data members, that are themselves substantial classes, e.g. CVOdeInterface, ModelGenerator, NOMSupport, PluginManager to name a few.
+  
+\\
+\subsection{Dependencies}
 \subsubsection{Data flow}
 \subsubsection{Functional Components}
 \subsubsection{Base}

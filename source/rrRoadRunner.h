@@ -108,13 +108,12 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		bool                     		mConservedTotalChanged;
 
 	public:
- 										RoadRunner(const string& tempFolder = gDefaultTempFolder,
- 												const string& supportCodeFolder = gDefaultSupportCodeFolder,
- 												const string& compiler = gDefaultCompiler);
+ 										RoadRunner( const string& tempFolder = gDefaultTempFolder,
+ 												    const string& supportCodeFolder = gDefaultSupportCodeFolder,
+ 												    const string& compiler = gDefaultCompiler);
 		virtual                        ~RoadRunner();
         int								getInstanceID();
         int								getInstanceCount();
-
 		bool        					computeAndAssignConservationLaws();
 		void                            setParameterValue(const TParameterType& parameterType, const int& parameterIndex, const double& value);
 		double                          getParameterValue(const TParameterType& parameterType, const int& parameterIndex);
@@ -123,8 +122,6 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		NOMSupport*						getNOM();
 		string							getInfo();
         PluginManager&					getPluginManager();
-
-
 		vector<SelectionRecord>         getSteadyStateSelection(const StringList& newSelectionList);
 		vector<SelectionRecord>         getSelectionList();
 
@@ -139,10 +136,8 @@ class RR_DECLSPEC RoadRunner : public rrObject
    		 */
    		bool                            setCompiler(const string& compiler);
 
-
 		//Functions --------------------------------------------------------------------
         bool                            isModelLoaded();
-
         string                          getModelName();
 		string							getlibSBMLVersion();
         bool                            unLoadModel();
@@ -160,7 +155,7 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		bool                     		setTempFileFolder(const string& folder);
 
 		/**
-		 * get the ModelGenerator's temporary file directory.
+		 * get the RoadRunners temporary file folder.
 		 */
 		string                   		getTempFolder();
 
@@ -169,9 +164,7 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		bool                            simulate2();
 		DoubleMatrix                    simulateEx(const double& startTime, const double& endTime, const int& numberOfPoints);
 		bool                            simulate2Ex(const double& startTime = 0, const double& endTime = 5, const int& numberOfPoints = 50);
-
 		double                          getValueForRecord(const SelectionRecord& record);
-
 		void                            partOfSimulation(SBMLModelSimulation* simulation){mSimulation = simulation;}
 		RoadRunnerData                  getSimulationResult();
         bool							loadSimulationSettings(const string& fName);
@@ -200,7 +193,6 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		 */
 		ModelGenerator*                 getModelGenerator();
 
-
 		//Model generation
 		ExecutableModel*				getModel();
 
@@ -220,16 +212,12 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		string                          getCapabilitiesAsXML();
 		StringList                      getListOfCapabilities();
 		StringList                      getListOfParameters(const string& capName);
-
         bool						  	addCapability(Capability& cap);
         bool						  	addCapabilities(Capabilities& caps);
         bool							setCapabilityParameter(const string& cap, const string& parameter, const string& value);
-
 		void                            setCapabilities(const string& capsStr);
-
 		void                            setTolerances(const double& aTol, const double& rTol);
 		void                            correctMaxStep();
-
 		bool                            setValue(const string& sId, const double& dValue);
 		double                          getValue(const string& sId);
 		NewArrayList                    getAvailableTimeCourseSymbols();
@@ -283,8 +271,6 @@ class RR_DECLSPEC RoadRunner : public rrObject
 		vector<double>                  computeSteadyStateValues(const vector<SelectionRecord>& selection, const bool& computeSteadyState);
 		double                          computeSteadyStateValue(const string& sId);
 		vector<double>                  getSelectedValues();
-
-
 		void                     		computeAndAssignConservationLaws(const bool& bValue);
 		double*                         steadyStateParameterScan(const string& symbol, const double& startValue, const double& endValue, const double& stepSize);
 
@@ -422,7 +408,6 @@ class RR_DECLSPEC RoadRunner : public rrObject
 
         //    "Compute the value for a particular scaled flux control coefficients with respect to a global or boundary species parameter"
         double 							getScaledFluxControlCoefficient(const string& reactionName, const string& parameterName);
-
 };
 
 }
