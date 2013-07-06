@@ -4020,6 +4020,72 @@ string RoadRunner::getlibSBMLVersion()
     return mNOM.getlibSBMLVersion();
 }
 
+std::map<std::string, double> RoadRunner::getAdjustableSBMLParameters()
+{
+
+    std::map<std::string, double> exportableQuantities;
+
+    const vector<string> & floatingSpeciesIds = getFloatingSpeciesIds();
+    const vector<double> & floatingSpeciesConcentrations =
+            getFloatingSpeciesConcentrations();
+    for (unsigned int i = 0; i < floatingSpeciesIds.size(); ++i)
+    {
+        exportableQuantities[floatingSpeciesIds[i]] =
+                floatingSpeciesConcentrations[i];
+    }
+
+    const vector<string> & globalParameterIds = getGlobalParameterIds();
+    const vector<double> & globalParameterValues = getGlobalParameterValues();
+    for (unsigned int i = 0; i < globalParameterIds.size(); ++i)
+    {
+        exportableQuantities[globalParameterIds[i]] = globalParameterValues[i];
+    }
+
+    const vector<string> & boundarySpeciesIds = getBoundarySpeciesIds();
+    const vector<double> & boundarySpeciesConcentrations =
+            getBoundarySpeciesConcentrations();
+    for (unsigned int i = 0; i < boundarySpeciesIds.size(); ++i)
+    {
+        exportableQuantities[boundarySpeciesIds[i]] =
+                boundarySpeciesConcentrations[i];
+    }
+
+    return exportableQuantities;
+}
+
+void RoadRunner::setAdjustableSBMLParameters(
+        const std::map<std::string, double> & _speciesMap)
+{
+    for (map<std::string, double>::const_iterator mitr = _speciesMap.begin();
+            mitr != _speciesMap.end(); ++mitr)
+    {
+        setValue(mitr->first, mitr->second);
+    }
+}
+
+std::map<std::string, double> RoadRunner::getFloatingSpeciesMap()
+{
+    std::map<std::string, double> exportableQuantities;
+
+    const vector<string> & floatingSpeciesIds = getFloatingSpeciesIds();
+    const vector<double> & floatingSpeciesConcentrations =
+            getFloatingSpeciesConcentrations();
+    for (unsigned int i = 0; i < floatingSpeciesIds.size(); ++i)
+    {
+        exportableQuantities[floatingSpeciesIds[i]] =
+                floatingSpeciesConcentrations[i];
+    }
+    return exportableQuantities;
+}
+
+void RoadRunner::setFloatingSpeciesMap(
+        const std::map<std::string, double> & _speciesMap)
+{
+    setAdjustableSBMLParameters(_speciesMap);
+}
+
+
+
 // =========================================== NON ENABLED FUNCTIONS BELOW.....
 
 

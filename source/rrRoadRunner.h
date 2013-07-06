@@ -365,6 +365,13 @@ class RR_DECLSPEC RoadRunner : public rrObject
         vector<double>                  getGlobalParameterValues();
         vector<string>                  getGlobalParameterIds();
         vector<string>                  getAllGlobalParameterTupleList();
+
+        std::map<std::string,double>    getFloatingSpeciesMap();
+        void                            setFloatingSpeciesMap(const std::map<std::string,double> & _speciesMap);
+        std::map<std::string,double>    getAdjustableSBMLParameters();
+        void                            setAdjustableSBMLParameters(const std::map<std::string,double> & _speciesMap);
+
+
         void                            evalModel();
 
         //These functions are better placed in a separate file, as non class members, but part of the roadrunner namespace?

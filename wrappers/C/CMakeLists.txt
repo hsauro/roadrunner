@@ -44,10 +44,13 @@ if(WIN32)
         roadrunner-static
         )
     
-else() #===== LINUX ====== 
+else() #Unix
 
-    #set(CMAKE_SHARED_LINKER_FLAGS "-Wl, -z,defs --no-undefined")
-    set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
+    # OSX seems to link fine without this flag
+    if(NOT APPLE)
+        set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
+    endif()
+    
     set_property(TARGET ${target} 
         PROPERTY  COMPILE_DEFINITIONS 
         LIBSBML_STATIC

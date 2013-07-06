@@ -61,9 +61,14 @@ else(WIN32)
 
 #    set(CMAKE_SHARED_LINKER_FLAGS "-Wl, -z,defs --no-undefined")
 #    set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
-    SET_TARGET_PROPERTIES(_RoadRunner PROPERTIES LINK_FLAGS "-Wl,--no-undefined")
-    
-    
+
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+        # Linux specific code
+        SET_TARGET_PROPERTIES(_RoadRunner PROPERTIES LINK_FLAGS "-Wl,--no-undefined")
+    endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+
+
+
     set_property(TARGET _RoadRunner
         PROPERTY  COMPILE_DEFINITIONS
         LIBSBML_STATIC
@@ -71,18 +76,18 @@ else(WIN32)
         STATIC_PUGI
         STATIC_LIBSTRUCT
         )
-    
+
     SWIG_LINK_LIBRARIES ( RoadRunner
         roadrunner-static
         rr-libstruct-static
-        nleq-static        
+        nleq-static
         sbml-static
         lapack
         blas
         f2c
         ${PYTHON_LIBRARIES}
         )
-        
+
         #        lapack
         #        blas
         #        f2c
@@ -94,7 +99,7 @@ else(WIN32)
         #        roadrunner-static
 
 
-    
+
 endif(WIN32)
 
 
