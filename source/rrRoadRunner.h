@@ -366,6 +366,7 @@ class RR_DECLSPEC RoadRunner : public rrObject
         vector<string>                  getGlobalParameterIds();
         vector<string>                  getAllGlobalParameterTupleList();
 
+
         std::map<std::string,double>    getFloatingSpeciesMap();
         void                            setFloatingSpeciesMap(const std::map<std::string,double> & _speciesMap);
         std::map<std::string,double>    getAdjustableSBMLParameters();

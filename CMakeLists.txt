@@ -39,7 +39,7 @@ find_package(LLVM)
 option (BUILD_LLVM "Build the optional LLVM back end (Should build, but not fully implemented yet)" OFF)
 
 # should we build the swig python wrapper?
-option (BUILD_SWIG_PYTHON "build the optional SWIG generated python wrapper" OFF)
+option (BUILD_SWIG_PYTHON "build the *EXPERIMENTAL* SWIG generated python wrapper" OFF)
 
 if(BUILD_LLVM AND NOT LLVM_FOUND)
     message(FATAL_ERROR "BUILD_LLVM is enabled, but no LLVM installation was found")
