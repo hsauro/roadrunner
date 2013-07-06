@@ -1,5 +1,3 @@
-
-
 include(${CMAKE_CURRENT_SOURCE_DIR}/FindSWIG.cmake) # this is slightly modified FindSWIG.cmake file -  had to tune it to work with OSX
 
 FIND_PACKAGE(SWIG REQUIRED)

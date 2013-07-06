@@ -24,42 +24,47 @@ rrc_cpp_support
 )
 
 if(${MSVC})
-set (CMAKE_SHARED_LINKER_FLAGS 	"${CMAKE_SHARED_LINKER_FLAGS} \"/DEF:${CMAKE_CURRENT_SOURCE_DIR}/rrc_api.def\"")
+    set (CMAKE_SHARED_LINKER_FLAGS 	"${CMAKE_SHARED_LINKER_FLAGS} \"/DEF:${CMAKE_CURRENT_SOURCE_DIR}/rrc_api.def\"")
 endif()
 
 #Link C_api dll statically to roadrunner and libsbml
 if(WIN32)
-set_property(TARGET ${target} 
-PROPERTY  COMPILE_DEFINITIONS 
-EXPORT_RRC
-LIBSBML_STATIC
-LIBLAX_STATIC
-STATIC_PUGI
-POCO_STATIC
-STATIC_LIBSTRUCT
-STATIC_RR             
-)
-
-target_link_libraries ( ${target}
-roadrunner-static
-)
-
+    set_property(TARGET ${target} 
+        PROPERTY  COMPILE_DEFINITIONS 
+        EXPORT_RRC
+        LIBSBML_STATIC
+        LIBLAX_STATIC
+        STATIC_PUGI
+        POCO_STATIC
+        STATIC_LIBSTRUCT
+        STATIC_RR             
+        )
+    
+    target_link_libraries ( ${target}
+        roadrunner-static
+        )
+    
 else() #===== LINUX ====== 
-set_property(TARGET ${target} 
-PROPERTY  COMPILE_DEFINITIONS 
-LIBSBML_STATIC
-LIBLAX_STATIC
-STATIC_PUGI
-STATIC_LIBSTRUCT
-)
 
-target_link_libraries ( ${target} 
-sbml-static
-roadrunner-static
-blas
-lapack
-f2c
-)
+    #set(CMAKE_SHARED_LINKER_FLAGS "-Wl, -z,defs --no-undefined")
+    set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
+    set_property(TARGET ${target} 
+        PROPERTY  COMPILE_DEFINITIONS 
+        LIBSBML_STATIC
+        LIBLAX_STATIC
+        STATIC_PUGI
+        STATIC_LIBSTRUCT
+        )
+    
+    target_link_libraries ( ${target} 
+        roadrunner-static
+        rr-libstruct-static
+        nleq-static        
+        sbml-static
+        lapack
+        blas
+        f2c
+        )
 endif()
 
 add_subdirectory(Apps)

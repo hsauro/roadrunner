@@ -24,20 +24,15 @@ INCLUDE_DIRECTORIES(
     )
 
 
-
-
-
-
 # configure compilation of modules for old and new player. Old player modules are compiled with ("threads"=0) option and new are compiled with ("threads"=1) option
 # set(thread_option \(\"threads\"=1\))
-
-
 
 
 
 SET_SOURCE_FILES_PROPERTIES(RoadRunner.i  PROPERTIES CPLUSPLUS ON)
 # SET_SOURCE_FILES_PROPERTIES(CompuCellPython.i CompuCellAuxPython.i PROPERTIES SWIG_FLAGS "-includeall")
 SWIG_ADD_MODULE(RoadRunner python RoadRunner.i)
+
 
 
 if(WIN32)
@@ -64,6 +59,11 @@ if(WIN32)
 
 else(WIN32)
 
+#    set(CMAKE_SHARED_LINKER_FLAGS "-Wl, -z,defs --no-undefined")
+#    set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
+    SET_TARGET_PROPERTIES(_RoadRunner PROPERTIES LINK_FLAGS "-Wl,--no-undefined")
+    
+    
     set_property(TARGET _RoadRunner
         PROPERTY  COMPILE_DEFINITIONS
         LIBSBML_STATIC
@@ -71,16 +71,30 @@ else(WIN32)
         STATIC_PUGI
         STATIC_LIBSTRUCT
         )
-
+    
     SWIG_LINK_LIBRARIES ( RoadRunner
-        sbml-static
         roadrunner-static
-        blas
+        rr-libstruct-static
+        nleq-static        
+        sbml-static
         lapack
+        blas
         f2c
         ${PYTHON_LIBRARIES}
         )
+        
+        #        lapack
+        #        blas
+        #        f2c
+        #        "-Wl,--whole-archive"
+        #        rr-libstruct-static
+        #        "-Wl,--no-whole-archive"
+        #        lmfit-static
+        #        sbml-static
+        #        roadrunner-static
 
+
+    
 endif(WIN32)
 
 
