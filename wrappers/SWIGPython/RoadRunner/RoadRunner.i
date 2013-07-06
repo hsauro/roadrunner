@@ -4,7 +4,7 @@
 
 //%module Example
 // ************************************************************
-// Module Includes 
+// Module Includes
 // ************************************************************
 
 // These are copied directly to the .cxx file and are not parsed
@@ -43,13 +43,14 @@
     #include <lsMatrix.h>
     #include <lsLibla.h>
     #include <lsLA.h>
-    #include <lsLUResult.h>    
+    #include <lsLUResult.h>
     #include <lsUtils.h>
-    // #include <rrStringList.h>
-    #include <rrRoadRunner.h>    
+    #include <rrRoadRunner.h>
+    #include <cstddef>
+
     using namespace std;
     using namespace ls;
-    
+
     using namespace rr;
 
 %}
