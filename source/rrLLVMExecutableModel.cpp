@@ -147,9 +147,8 @@ double LLVMExecutableModel::getConcentration(int index)
     return 0;
 }
 
-vector<double> LLVMExecutableModel::getCurrentValues()
+void LLVMExecutableModel::getRateRuleValues(double *rateRuleValues)
 {
-    return vector<double>();
 }
 
 double LLVMExecutableModel::getAmounts(const int& i)
@@ -161,11 +160,7 @@ void LLVMExecutableModel::initializeRates()
 {
 }
 
-void LLVMExecutableModel::assignRates()
-{
-}
-
-void LLVMExecutableModel::assignRates(vector<double>& rates)
+void LLVMExecutableModel::setRateRuleValues(const double * rates)
 {
 }
 
@@ -181,7 +176,7 @@ void LLVMExecutableModel::computeAllRatesOfChange()
 {
 }
 
-void LLVMExecutableModel::evalModel(const double& time, const vector<double>& y)
+void LLVMExecutableModel::evalModel(double time, const double *y)
 {
 }
 
@@ -278,6 +273,14 @@ double LLVMExecutableModel::getGlobalParameterValue(int index)
 }
 
 void LLVMExecutableModel::setGlobalParameterValue(int index, double value)
+{
+}
+
+int LLVMExecutableModel::pushState(unsigned)
+{
+}
+
+int LLVMExecutableModel::popState(unsigned)
 {
 }
 

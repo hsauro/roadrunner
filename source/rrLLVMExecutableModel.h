@@ -30,6 +30,24 @@ public:
     virtual double getTime();
     virtual ModelData& getModelData();
 
+    /**
+     * A ExecutableModel holds a stack of states, the entire state of this
+     * model is pushed onto the saved state stack, and the current state
+     * remains unchanged.
+     *
+     * @returns the size of the saved stack after the current state has been
+     * pushed.
+     */
+    virtual int pushState(unsigned);
+
+    /**
+     * restore the state from a previously saved state, if the state stack
+     * is empty, this has no effect.
+     *
+     * @returns the size of the saved stack after the top has been poped.
+     */
+    virtual int popState(unsigned);
+
 
     // functions --------------------------------------------------------
     virtual int getNumIndependentSpecies();
@@ -63,15 +81,16 @@ public:
     virtual double getConcentration(int index);
 
     //Access dll data
-    virtual vector<double> getCurrentValues();
+    virtual void getRateRuleValues(double *rateRuleValues);
     virtual double getAmounts(const int& i);
     virtual void initializeRates();
-    virtual void assignRates();
-    virtual void assignRates(vector<double>& rates);
+
+    virtual void setRateRuleValues(const double *rateRuleValues);
+
     virtual void convertToConcentrations();
     virtual void updateDependentSpeciesValues(double* _y);
     virtual void computeAllRatesOfChange();
-    virtual void evalModel(const double& time, const vector<double>& y);
+    virtual void evalModel(double time, const double *y);
     virtual void evalEvents(const double& time, const vector<double>& y);
     virtual void resetEvents();
     virtual void testConstraints();

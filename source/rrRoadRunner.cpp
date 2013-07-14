@@ -15,7 +15,6 @@
 #include "rrSBMLModelSimulation.h"
 #include "rr-libstruct/lsLA.h"
 #include "rr-libstruct/lsLibla.h"
-#include "rrModelState.h"
 #include "rrCapabilities.h"
 #include "rrConstants.h"
 #include "rrVersionInfo.h"
@@ -487,7 +486,8 @@ vector<double> RoadRunner::buildModelEvalArgument()
     vector<double> dResult;
     dResult.resize((mModel->getModelData().numFloatingSpecies) + (mModel->getModelData().numRateRules) );
 
-    vector<double> dCurrentRuleValues = mModel->getCurrentValues();
+    vector<double> dCurrentRuleValues(mModel->getModelData().numRateRules, 0);
+    mModel->getRateRuleValues(&dCurrentRuleValues[0]);
 
     for(int i = 0; i < (mModel->getModelData().numRateRules); i++)
     {
@@ -525,7 +525,7 @@ DoubleMatrix RoadRunner::runSimulation()
 
     vector<double> y;
     y = buildModelEvalArgument();
-    mModel->evalModel(mTimeStart, y);
+    mModel->evalModel(mTimeStart, &y[0]);
     addNthOutputToResult(results, 0, mTimeStart);
 
     //Todo: Don't understand this code.. MTK
@@ -1289,7 +1289,7 @@ void RoadRunner::evalModel()
     }
     mModel->convertToAmounts();
     vector<double> args = mCVode->buildEvalArgument();
-    mModel->evalModel(mModel->getTime(), args);
+    mModel->evalModel(mModel->getTime(), &args[0]);
 }
 
 void RoadRunner::setTimeCourseSelectionList(const string& list)
@@ -2527,31 +2527,28 @@ string RoadRunner::writeSBML()
 
     NOM.loadSBML(NOM.getParamPromotedSBML(mCurrentSBML));
 
-    ModelState state(*mModel);
-//    var state = new ModelState(model);
-
     vector<string> array = getFloatingSpeciesIds();
     for (int i = 0; i < array.size(); i++)
     {
-        NOM.setValue((string)array[i], state.mFloatingSpeciesConcentrations[i]);
+        NOM.setValue((string)array[i], mModel->getModelData().floatingSpeciesConcentrations[i]);
     }
 
     array = getBoundarySpeciesIds();
     for (int i = 0; i < array.size(); i++)
     {
-        NOM.setValue((string)array[i], state.mBoundarySpeciesConcentrations[i]);
+        NOM.setValue((string)array[i], mModel->getModelData().boundarySpeciesConcentrations[i]);
     }
 
     array = getCompartmentIds();
     for (int i = 0; i < array.size(); i++)
     {
-        NOM.setValue((string)array[i], state.mCompartmentVolumes[i]);
+        NOM.setValue((string)array[i], mModel->getModelData().compartmentVolumes[i]);
     }
 
     array = getGlobalParameterIds();
-    for (int i = 0; i < min((int) array.size(), (int) state.mGlobalParameters.size()); i++)
+    for (int i = 0; i < mModel->getModelData().numGlobalParameters; i++)
     {
-        NOM.setValue((string)array[i], state.mGlobalParameters[i]);
+        NOM.setValue((string)array[i], mModel->getModelData().globalParameters[i]);
     }
 
     return NOM.getSBML();

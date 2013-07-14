@@ -44,6 +44,34 @@ public:
      */
     virtual ModelData& getModelData() = 0;
 
+    enum StateStackOptions
+    {
+        /**
+         * Default behavior is to pop and restore previous state, (like OpenGL),
+         * this pops the last save and discards it without restoring the state.
+         */
+        PopDiscard = 0x00000001
+    };
+
+
+    /**
+     * A ExecutableModel holds a stack of states, the entire state of this
+     * model is pushed onto the saved state stack, and the current state
+     * remains unchanged.
+     *
+     * @returns the size of the saved stack after the current state has been
+     * pushed.
+     */
+    virtual int pushState(unsigned options = 0) = 0;
+
+    /**
+     * restore the state from a previously saved state, if the state stack
+     * is empty, this has no effect.
+     *
+     * @returns the size of the saved stack after the top has been poped.
+     */
+    virtual int popState(unsigned options = 0) = 0;
+
     /**
      * Sets the initial floating species concentrations, ModelData::floatingSpeciesInitConcentrations to
      * the initial value specified in the sbml model. The initial concentration
@@ -159,12 +187,38 @@ public:
 
     virtual double getConcentration(int index) = 0;
 
-    //Access dll data
-    virtual vector<double> getCurrentValues() = 0;
+
+
     virtual double getAmounts(const int& i) = 0;
     virtual void initializeRates() = 0;
-    virtual void assignRates() = 0;
-    virtual void assignRates(vector<double>& rates) = 0;
+
+    /**
+     * set the 'values' of the rate rules.
+     *
+     * Rate rules are a set of rate equations, i.e dy/dt, where y is some
+     * existing model variable, i.e. volume, parameter, etc...
+     *
+     * This function sets all of the values that the derivatives integrated
+     * to, i.e. if dy/dt is the rate of change of say a compartment volume,
+     * than this function takes that compartment volume and stores it in
+     * the appropriate place.
+     *
+     * The length of rateRuleValues obviously must be the number of
+     * rate rules we have.
+     */
+    virtual void setRateRuleValues(const double *rateRuleValues) = 0;
+
+
+    /**
+     * get the 'values' i.e. the what the rate rule integrates to, and
+     * store it in the given array.
+     *
+     * The length of rateRuleValues obviously must be the number of
+     * rate rules we have.
+     */
+    virtual void getRateRuleValues(double *rateRuleValues) = 0;
+
+
     virtual void convertToConcentrations() = 0;
     virtual void updateDependentSpeciesValues(double* _y) = 0;
     virtual void computeAllRatesOfChange() = 0;
@@ -172,8 +226,13 @@ public:
     /**
      * the state vector y is the rate rule values and floating species
      * concentrations concatenated. y is of length numFloatingSpecies + numRateRules.
+     *
+     * The state vector is packed such that the first n raterule elements are the
+     * values of the rate rules, and the last n floatingspecies are the floating
+     * species values.
      */
-    virtual void evalModel(const double& time, const vector<double>& y) = 0;
+    virtual void evalModel(double time, const double *y) = 0;
+
     virtual void evalEvents(const double& time, const vector<double>& y) = 0;
     virtual void resetEvents() = 0;
     virtual void testConstraints() = 0;
