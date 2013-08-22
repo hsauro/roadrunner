@@ -177,27 +177,16 @@ struct EventPredicate
     uint eventId;
 };
 
-bool EventQueue::find(uint key)
-{
-    return std::find_if(c.begin(), c.end(), EventPredicate(key)) != c.end();
-}
-
 void EventQueue::make_heap()
 {
-    std::make_heap(c.begin(), c.end(), comp);
-}
-
-void EventQueue::erase(EventQueue::iterator pos)
-{
-    c.erase(pos);
-    std::make_heap(c.begin(), c.end(), comp);
+    c.sort();
 }
 
 bool EventQueue::eraseExpiredEvents()
 {
     bool erased = false;
     iterator i = c.begin();
-    while (i < c.end())
+    while (i != c.end())
     {
         if (!(*i).isExpired())
         {
@@ -217,23 +206,19 @@ bool EventQueue::eraseExpiredEvents()
     return erased;
 }
 
-bool EventQueue::hasCurrentEvents()
-{
-    return size() && top().isCurrent();
-}
-
 bool EventQueue::applyEvent()
 {
     bool applied = false;
-    if (_base::size())
+    if (size())
     {
-        const Event& e = _base::top();
+        c.sort();
+        const Event& e = c.front();
         if (e.isPersistent() || e.isTriggered())
         {
             if (e.delay == 0.0 || e.assignTime <= e.model.getTime())
             {
                 e.assign();
-                _base::pop(); // note, e is no longer valid after pop
+                c.erase(c.begin());
                 applied = true;
             }
         }
@@ -252,6 +237,22 @@ bool EventQueue::applyEvent()
     }
 
     return applied;
+}
+
+void EventQueue::push(const rrllvm::Event& x)
+{
+    c.push_back(x);
+    c.sort();
+}
+
+uint EventQueue::size() const
+{
+    return c.size();
+}
+
+const Event& EventQueue::top() const
+{
+    return c.front();
 }
 
 }
